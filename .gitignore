@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build output (generated from src/)
+main.js
+
+# Environment & secrets
+.env
+
+# Obsidian plugin runtime data
+data.json
+
+# Dev tooling
+.hotreload
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

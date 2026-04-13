@@ -1,0 +1,9 @@
+{
+  "id": "umos-plugin",
+  "name": "umOS",
+  "version": "0.5.0beta",
+  "minAppVersion": "1.12.4",
+  "description": "Комплексная система управления жизнью.",
+  "author": "Saifun",
+  "isDesktopOnly": false
+} 
