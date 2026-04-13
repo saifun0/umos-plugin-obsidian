@@ -2,6 +2,8 @@
 
 > **Disclaimer:** This plugin, its codebase, and this README were entirely generated with the assistance of AI (Claude by Anthropic).
 
+![umOS Dashboard Preview](assets/preview.png)
+
 **umOS** is a comprehensive life-management system built as an Obsidian plugin. It turns your vault into a personal OS — a single place to track prayers, habits, tasks, finances, schedule, goals, exams, and more, all rendered as interactive markdown widgets directly inside your notes.
 
 ---
