@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
 
-# Build output (generated from src/)
-main.js
+# Build output — included intentionally for direct use
+# main.js
 
 # Environment & secrets
 .env
