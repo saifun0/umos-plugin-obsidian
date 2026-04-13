@@ -8,6 +8,19 @@
 
 ---
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Daily Note](assets/daily-note.png) | ![Prayer & Quran](assets/prayer.png) |
+| **Daily Note** — prayers, habits, day rating, schedule | **Prayer & Quran** — prayer times, verse of the day |
+| ![Schedule](assets/schedule.png) | ![Tasks Stats](assets/tasks-stats.png) |
+| **Schedule** — weekly timetable with live countdowns | **Tasks** — stats, progress chart, task list |
+| ![Tasks Kanban](assets/tasks-kanban.png) | ![Content Gallery](assets/content-gallery.png) |
+| **Tasks Kanban** — board view with subtasks | **Content Gallery** — anime, books, video, manga |
+
+---
+
 ## Features
 
 | Area | What it does |
