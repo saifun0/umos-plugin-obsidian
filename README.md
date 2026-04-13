@@ -1,139 +1,202 @@
-# umOS (Obsidian Plugin)
+# umOS — Obsidian Life Management Plugin
 
-Комплексная система управления жизнью для Obsidian: домашний дашборд, ежедневные заметки, привычки, расписание, задачи, намаз, коран, финансы и многое другое.
+> **Disclaimer:** This plugin, its codebase, and this README were entirely generated with the assistance of AI (Claude by Anthropic).
 
-## Возможности
-- Домашний экран `Home` с настраиваемыми секциями и карточками навигации.
-- Ежедневные заметки с шаблоном и включаемыми блоками.
-- Намаз: расчёт времени, виджеты, статус‑бар.
-- Коран: аят дня, трекер джузов.
-- Рамадан: трекер поста и таравих.
-- Привычки: дневной трекер + календарь привычек.
-- Расписание: текущая/недельная сетка занятий с подсветкой и таймерами.
-- Задачи: список, статистика, канбан, дедлайны.
-- Помодоро‑таймер.
-- Экзамены: список с приоритетами и темами.
-- Финансы: транзакции, категории, месячный бюджет.
-- Цели: виджет целей и быстрый добавлятор.
-- Галерея контента (аниме, книги, фильмы и т.д.) и проектов.
-- Погода на главном экране.
-- Быстрый ввод задач/заметок и URI‑захват.
+**umOS** is a comprehensive life-management system built as an Obsidian plugin. It turns your vault into a personal OS — a single place to track prayers, habits, tasks, finances, schedule, goals, exams, and more, all rendered as interactive markdown widgets directly inside your notes.
 
-## Быстрый старт
-1. Установите плагин в `vault/.obsidian/plugins/umos-plugin`.
-2. Включите `umOS` в Obsidian.
-3. В настройках плагина нажмите `Создать структуру`, чтобы создать базовые папки и дашборды.  
-   Важно: все существующие файлы/папки будут перемещены в `temp/`.
+---
 
-## Команды и кнопки
-Команды (Command Palette):
-- `umOS: Открыть Home`
-- `umOS: Быстрая задача`
-- `umOS: Быстрая заметка`
-- `umOS: Добавить цель`
-- `umOS: Создать дневную заметку`
-- `umOS: Редактор расписания`
-- `umOS: Следующий намаз`
-- `umOS: Помодоро: Старт/Пауза`
-- `umOS: Отметить привычку`
+## Features
 
-Кнопки на ленте:
-- `Home` (открыть главный экран)
-- `Calendar` (создать дневную заметку)
-- `Plus` (быстрая задача)
+| Area | What it does |
+|---|---|
+| **Home Dashboard** | Customizable home screen with navigation cards and live section widgets |
+| **Daily Notes** | Auto-generated daily notes with configurable sections and an inline navigator |
+| **Prayer Times** | Prayer schedule via Aladhan API, status bar countdown, per-prayer notifications |
+| **Quran** | Verse of the day, juz tracker with grid/progress views |
+| **Ramadan** | Fast and tarawih tracker |
+| **Habits** | Daily habit check-off grid + per-habit calendar heatmap |
+| **Schedule** | Current class / weekly timetable with live countdown timers |
+| **Tasks** | Task list, kanban board, deadline overview, and stats widget |
+| **Pomodoro** | Focus timer with session counter and compact/full modes |
+| **Exams** | Exam list with priority levels and topic breakdown |
+| **Finance** | Income/expense transactions, categories, monthly budget overview |
+| **Balance** | Personal balance tracker |
+| **Goals** | Goals widget with a quick-add modal |
+| **Content Gallery** | Grid/list gallery for anime, books, movies, and other media |
+| **Project Gallery** | Same layout for personal projects |
+| **Stats** | Mood, sleep, and custom metric charts (sparkline, bar, ring) |
+| **Weather** | Current weather on the home screen via Open-Meteo |
+| **Quick Capture** | Fast task/note modal and full URI scheme support |
 
-## Виджеты (Markdown code blocks)
-Ниже список доступных блоков и ключевых параметров. Все параметры задаются в теле блока.
+---
 
-- `prayer-widget`  
-  Параметры: `show: times|next|both`, `style: full|compact`, `show_sunrise: true|false`
-- `ayat-daily`  
-  Параметры: `count: number`, `language: ru.kuliev`, `show_arabic: true|false`
-- `quran-tracker`  
-  Параметры: `style: grid|progress|both`
-- `ramadan-widget`  
-  Параметры: `style: full|compact`
-- `umos-stats`  
-  Параметры: `metrics: ["mood","sleep",...]`, `period: number`, `chart: sparkline|bar|ring|none`, `compare: true|false`
-- `schedule`  
-  Параметры: `show: current|week|both`, `highlight: true|false`, `countdown: true|false`
-- `content-gallery`  
-  Параметры: `style: grid|list`
-- `project-gallery`  
-  Параметры: `style: grid|list`
-- `habits`  
-  Параметры: `date: today|YYYY-MM-DD`, `style: grid|list`
-- `habit-calendar`  
-  Параметры: `habit: exercise`, `months: number`
-- `tasks-stats-widget`  
-  Параметры: нет
-- `tasks-widget`  
-  Параметры: нет
-- `tasks-kanban`  
-  Параметры: нет
-- `umos-goals`  
-  Параметры: нет
-- `daily-nav`  
-  Параметры: нет
-- `pomodoro`  
-  Параметры: `style: full|compact`
-- `exam-tracker`  
-  Параметры: `show: upcoming|all`, `style: full|compact`
-- `finance-tracker`  
-  Параметры: `month: YYYY-MM`, `style: full|compact`
-- `balance-tracker`  
-  Параметры: нет
+## Installation
 
-Пример:
+1. Download or clone this repository into your vault:
+   ```
+   <vault>/.obsidian/plugins/umos-plugin/
+   ```
+2. Enable **umOS** in Obsidian → Settings → Community Plugins.
+3. Open plugin settings and click **Create Structure** to scaffold the default folders and dashboards.
+
+> **Warning:** All existing files and folders will be moved to `temp/` during scaffolding.
+
+---
+
+## Quick Start
+
+After enabling the plugin, open the Command Palette (`Ctrl+P`) and run:
+
+```
+umOS: Open Home
+```
+
+This opens the main dashboard. From there you can navigate to any module.
+
+---
+
+## Widgets
+
+Widgets are rendered from fenced code blocks inside any note. Place the block name as the language identifier and set options in the body using YAML-style key: value pairs.
+
+### Example
+
 ````md
 ```prayer-widget
 show: both
 style: full
+show_sunrise: true
 ```
 ````
 
-## Быстрый ввод и URI‑захват
-Плагин поддерживает схему:
-```text
-obsidian://umos/capture?type=task&text=Купить%20молоко&priority=high
+### All Widgets
+
+#### Religion
+
+| Block | Options |
+|---|---|
+| `prayer-widget` | `show: times\|next\|both`, `style: full\|compact`, `show_sunrise: true\|false` |
+| `ayat-daily` | `count: number`, `language: ru.kuliev`, `show_arabic: true\|false` |
+| `quran-tracker` | `style: grid\|progress\|both` |
+| `ramadan-widget` | `style: full\|compact` |
+
+#### Productivity
+
+| Block | Options |
+|---|---|
+| `schedule` | `show: current\|week\|both`, `highlight: true\|false`, `countdown: true\|false` |
+| `habits` | `date: today\|YYYY-MM-DD`, `style: grid\|list` |
+| `habit-calendar` | `habit: <name>`, `months: number` |
+| `tasks-widget` | — |
+| `tasks-stats-widget` | — |
+| `tasks-kanban` | — |
+| `pomodoro` | `style: full\|compact` |
+| `exam-tracker` | `show: upcoming\|all`, `style: full\|compact` |
+| `umos-goals` | — |
+
+#### Finance & Stats
+
+| Block | Options |
+|---|---|
+| `finance-tracker` | `month: YYYY-MM`, `style: full\|compact` |
+| `balance-tracker` | — |
+| `umos-stats` | `metrics: ["mood","sleep",...]`, `period: number`, `chart: sparkline\|bar\|ring\|none`, `compare: true\|false` |
+
+#### Navigation & Layout
+
+| Block | Options |
+|---|---|
+| `daily-nav` | — |
+| `content-gallery` | `style: grid\|list` |
+| `project-gallery` | `style: grid\|list` |
+
+---
+
+## Commands
+
+Available via the Command Palette (`Ctrl+P`):
+
+| Command | Action |
+|---|---|
+| `umOS: Open Home` | Open the main dashboard |
+| `umOS: Quick Task` | Open quick task capture modal |
+| `umOS: Quick Note` | Open quick note capture modal |
+| `umOS: Add Goal` | Open goal creation modal |
+| `umOS: Create Daily Note` | Create today's daily note |
+| `umOS: Schedule Editor` | Open the schedule editor |
+| `umOS: Next Prayer` | Show next prayer time in a notice |
+| `umOS: Pomodoro: Start/Pause` | Toggle the pomodoro timer |
+| `umOS: Mark Habit` | Quick habit check-off |
+
+Ribbon buttons: **Home**, **Calendar** (daily note), **Plus** (quick task).
+
+---
+
+## URI Capture
+
+umOS supports the `obsidian://` URI scheme for external capture (e.g. from a phone shortcut or browser bookmark):
+
 ```
-Параметры:
-- `type`: `task` или `note`
-- `text`: текст задачи/заметки
-- `priority`: `high|medium|low|none` (для задач)
+obsidian://umos/capture?type=task&text=Buy%20milk&priority=high
+```
 
-Если `text` не передан, откроется модалка быстрого ввода.
+| Parameter | Values |
+|---|---|
+| `type` | `task` \| `note` |
+| `text` | URL-encoded text content |
+| `priority` | `high` \| `medium` \| `low` \| `none` (tasks only) |
 
-## Настройки
-Все настройки доступны в UI и сохраняются через `saveData` плагина. Основные секции:
-- Структура хранилища (скелет папок и дашбордов)
-- Дневная заметка (путь, формат, секции)
-- Привычки
-- Быстрый ввод
-- Геолокация (используется для намаза и погоды)
-- Намаз
-- Коран
-- Рамадан
-- Помодоро
-- Экзамены
-- Расписание
-- Контент
-- Главная
-- Статистика
-- Финансы
+If `text` is omitted, the quick capture modal opens instead.
 
-## Источники данных (API)
-- Намаз: Aladhan API.
-- Коран: Al Quran Cloud API.
-- Геолокация: ip-api.com.
-- Погода: Open‑Meteo.
+---
 
-## Разработка
+## Settings
+
+All settings are available in the plugin settings tab and are persisted via Obsidian's `saveData`. Sections:
+
+- **Vault Structure** — folder skeleton and dashboard scaffolding
+- **Daily Note** — path, date format, enabled sections
+- **Habits** — habit list and configuration
+- **Quick Capture** — default folder and format
+- **Location** — used for prayer times and weather
+- **Prayer** — calculation method, school, adjustments
+- **Quran** — translation language, display options
+- **Ramadan** — fast tracking options
+- **Pomodoro** — work/break durations, session goals
+- **Exams** — exam list and topic settings
+- **Schedule** — timetable data and display options
+- **Content** — media categories and gallery layout
+- **Home** — visible sections and card layout
+- **Stats** — tracked metrics and chart types
+- **Finance** — currency, categories, budget limits
+
+---
+
+## Data Sources
+
+| Service | Provider |
+|---|---|
+| Prayer times | [Aladhan API](https://aladhan.com/prayer-times-api) |
+| Quran text | [Al Quran Cloud API](https://alquran.cloud/api) |
+| Geolocation | [ip-api.com](http://ip-api.com) |
+| Weather | [Open-Meteo](https://open-meteo.com) |
+
+---
+
+## Development
+
 ```bash
 npm install
-npm run dev        # watch-сборка
-npm run build      # production-сборка
-npm run typecheck  # проверка типов
+npm run dev        # watch mode (esbuild)
+npm run build      # production build → main.js
+npm run typecheck  # TypeScript type check (no emit)
 ```
 
-Сборка выполняется через `esbuild` (см. `esbuild.config.mjs`). Выходной файл: `main.js`.
+Built with [esbuild](https://esbuild.github.io/) via `esbuild.config.mjs`. Output: `main.js` + `styles.css`.
+
+---
+
+## License
+
+MIT
