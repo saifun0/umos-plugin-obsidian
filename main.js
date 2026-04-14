@@ -14741,56 +14741,89 @@ var QuickHubModal = class extends import_obsidian48.Modal {
   }
   // ── Quick stat cards ──────────────────────────────────────────────────
   renderStats(parent) {
-    const grid = parent.createDiv({ cls: "umos-hub-stats-grid" });
-    if (this.financeService) {
-      const bal = this.financeService.getBalance();
-      const cur = this.plugin.settings.financeCurrency || "\u20BD";
-      const stats = this.financeService.getCurrentMonthStats();
-      const net = stats.income - stats.spent;
-      this.makeStatCard(
-        grid,
-        "\u{1F4B0}",
-        "\u0411\u0430\u043B\u0430\u043D\u0441",
-        `${bal < 0 ? "\u2212" : ""}${Math.abs(bal).toLocaleString("ru-RU")}${cur}`,
-        net >= 0 ? `+${net.toLocaleString("ru-RU")}${cur} \u0437\u0430 \u043C\u0435\u0441\u044F\u0446` : `${net.toLocaleString("ru-RU")}${cur} \u0437\u0430 \u043C\u0435\u0441\u044F\u0446`,
-        bal < 0 ? "danger" : net < 0 ? "warn" : "good"
-      );
+    this.renderStatsMini(parent);
+  }
+  renderStatsMini(parent) {
+    const engine = this.plugin.statsEngine;
+    if (!engine)
+      return;
+    const metrics = (this.plugin.settings.homeStatsMetrics?.length > 0 ? this.plugin.settings.homeStatsMetrics : ["mood", "productivity", "sleep", "prayer_count"]).slice(0, 6);
+    const ICONS = {
+      mood: "\u{1F60A}",
+      productivity: "\u26A1",
+      sleep: "\u{1F634}",
+      prayer_count: "\u{1F54C}",
+      exercise: "\u{1F3CB}\uFE0F",
+      reading: "\u{1F4DA}",
+      water: "\u{1F4A7}",
+      quran: "\u{1F4D6}",
+      study: "\u{1F393}"
+    };
+    const NAMES = {
+      mood: "\u041D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u0435",
+      productivity: "\u041F\u0440\u043E\u0434\u0443\u043A\u0442.",
+      sleep: "\u0421\u043E\u043D",
+      prayer_count: "\u041D\u0430\u043C\u0430\u0437\u044B",
+      exercise: "\u0423\u043F\u0440\u0430\u0436\u043D.",
+      reading: "\u0427\u0442\u0435\u043D\u0438\u0435",
+      water: "\u0412\u043E\u0434\u0430",
+      quran: "\u041A\u043E\u0440\u0430\u043D",
+      study: "\u0423\u0447\u0451\u0431\u0430"
+    };
+    const COLORS = {
+      mood: "#f39c12",
+      productivity: "#3498db",
+      sleep: "#9b59b6",
+      prayer_count: "#27ae60",
+      exercise: "#e74c3c",
+      reading: "#1abc9c",
+      water: "#2980b9",
+      quran: "#27ae60",
+      study: "#8e44ad"
+    };
+    const card = parent.createDiv({ cls: "umos-hub-stat-card umos-hub-stat-neutral umos-hub-stat-metrics" });
+    card.createDiv({ cls: "umos-hub-stat-emoji", text: "\u{1F4CA}" });
+    card.createDiv({ cls: "umos-hub-stat-label", text: "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430 \xB7 14\u0434" });
+    const inner = card.createDiv({ cls: "umos-hub-metrics-inner" });
+    for (const metric of metrics) {
+      const result = engine.getMetricData(metric, 14);
+      const values = result.data.map((d) => d.value);
+      const row = inner.createDiv({ cls: "umos-hub-metric-row" });
+      row.createSpan({ cls: "umos-hub-metric-icon", text: ICONS[metric] || "\u{1F4CA}" });
+      row.createSpan({ cls: "umos-hub-metric-name", text: NAMES[metric] || metric });
+      row.createSpan({
+        cls: "umos-hub-metric-val",
+        text: metric === "prayer_count" ? `${result.avg}/5` : String(result.avg)
+      });
+      if (values.length >= 3) {
+        row.appendChild(this.makeMiniSparkline(values, COLORS[metric] || "#888"));
+      }
     }
-    const pomo = this.plugin.data_store.pomodoro;
-    this.makeStatCard(
-      grid,
-      "\u{1F345}",
-      "\u041F\u043E\u043C\u043E\u0434\u043E\u0440\u043E",
-      `${pomo.completedToday} \u0441\u0435\u0433\u043E\u0434\u043D\u044F`,
-      `${pomo.totalCompleted} \u0432\u0441\u0435\u0433\u043E`,
-      pomo.completedToday >= 4 ? "good" : "neutral"
-    );
-    const goals = this.plugin.settings.goals || [];
-    const activeGoals = goals.filter((g) => g.status !== "completed" && g.status !== "archived");
-    const doneGoals = goals.filter((g) => g.status === "completed");
-    this.makeStatCard(
-      grid,
-      "\u{1F3AF}",
-      "\u0426\u0435\u043B\u0438",
-      `${activeGoals.length} \u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0445`,
-      `${doneGoals.length} \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E`,
-      "neutral"
-    );
-    const exams = this.plugin.data_store.exams || [];
-    const today = (0, import_obsidian48.moment)().format("YYYY-MM-DD");
-    const upcoming = exams.filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
-    if (upcoming.length > 0) {
-      const next = upcoming[0];
-      const daysLeft = (0, import_obsidian48.moment)(next.date).diff((0, import_obsidian48.moment)(today), "days");
-      this.makeStatCard(
-        grid,
-        "\u{1F4DD}",
-        "\u042D\u043A\u0437\u0430\u043C\u0435\u043D",
-        next.name.length > 18 ? next.name.slice(0, 18) + "\u2026" : next.name,
-        daysLeft === 0 ? "\u0421\u0435\u0433\u043E\u0434\u043D\u044F!" : `\u0427\u0435\u0440\u0435\u0437 ${daysLeft} \u0434\u043D.`,
-        daysLeft <= 3 ? "danger" : daysLeft <= 7 ? "warn" : "neutral"
-      );
-    }
+  }
+  makeMiniSparkline(values, color) {
+    const W = 44, H = 16;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+    const pts = values.map((v, i) => {
+      const x = i / (values.length - 1) * W;
+      const y = H - 1 - (v - min) / range * (H - 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", String(W));
+    svg.setAttribute("height", String(H));
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("class", "umos-hub-metric-spark");
+    const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    poly.setAttribute("points", pts);
+    poly.setAttribute("fill", "none");
+    poly.setAttribute("stroke", color);
+    poly.setAttribute("stroke-width", "1.5");
+    poly.setAttribute("stroke-linecap", "round");
+    poly.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(poly);
+    return svg;
   }
   makeStatCard(parent, emoji, label, value, sub, variant) {
     const card = parent.createDiv({ cls: `umos-hub-stat-card umos-hub-stat-${variant}` });
@@ -14813,13 +14846,26 @@ var QuickHubModal = class extends import_obsidian48.Modal {
     }
     const { currentSlot, nextSlot } = getCurrentSlotInfo(allSlots);
     const list = section.createDiv({ cls: "umos-hub-schedule-list" });
-    for (const slot of slots) {
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i];
       const isCurrent = slot === currentSlot;
       const isNext = slot === nextSlot;
       const row = list.createDiv({
         cls: `umos-hub-schedule-row${isCurrent ? " is-current" : ""}${isNext ? " is-next" : ""}`
       });
-      row.createDiv({ cls: "umos-hub-schedule-time", text: `${slot.startTime}\u2013${slot.endTime}` });
+      row.createDiv({ cls: "umos-hub-schedule-pair-num", text: String(i + 1) });
+      const timeCol = row.createDiv({ cls: "umos-hub-schedule-time-col" });
+      timeCol.createDiv({ cls: "umos-hub-schedule-time", text: slot.startTime });
+      timeCol.createDiv({ cls: "umos-hub-schedule-time umos-hub-schedule-time-end", text: slot.endTime });
+      if (isCurrent) {
+        const cd = formatSlotCountdown(slot.endTime);
+        if (cd)
+          row.createDiv({ cls: "umos-hub-schedule-cd is-current", text: `\u0435\u0449\u0451 ${cd}` });
+      } else if (isNext) {
+        const cd = formatSlotCountdown(slot.startTime);
+        if (cd)
+          row.createDiv({ cls: "umos-hub-schedule-cd is-next", text: `\u0447\u0435\u0440\u0435\u0437 ${cd}` });
+      }
       const info = row.createDiv({ cls: "umos-hub-schedule-info" });
       info.createDiv({ cls: "umos-hub-schedule-subject", text: slot.subject });
       if (slot.room)

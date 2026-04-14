@@ -11643,71 +11643,99 @@ body.theme-dark .umos-balance-history-item {
 .umos-hub-content {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
-	padding: 20px;
+	gap: 12px;
+	padding: 16px;
 }
 
-/* Profile */
+/* ── Profile ── */
 .umos-hub-profile {
 	display: flex;
 	align-items: center;
-	gap: 16px;
-	padding: 16px;
-	border-radius: var(--umos-radius, 10px);
-	background: linear-gradient(135deg, var(--background-secondary), var(--background-modifier-border) 200%);
-	border: 1px solid var(--background-modifier-border);
+	gap: 14px;
+	padding: 13px 16px;
+	border-radius: 12px;
+	background: linear-gradient(120deg,
+		rgba(var(--umos-accent-rgb), 0.13) 0%,
+		var(--background-secondary) 60%);
+	border: 1px solid rgba(var(--umos-accent-rgb), 0.18);
+	position: relative;
+	overflow: hidden;
+}
+.umos-hub-profile::before {
+	content: '';
+	position: absolute;
+	right: -14px; top: -18px;
+	width: 84px; height: 84px;
+	border-radius: 50%;
+	background: rgba(var(--umos-accent-rgb), 0.09);
+	pointer-events: none;
+}
+.umos-hub-profile::after {
+	content: '';
+	position: absolute;
+	right: 46px; bottom: -22px;
+	width: 52px; height: 52px;
+	border-radius: 50%;
+	background: rgba(var(--umos-accent-rgb), 0.06);
+	pointer-events: none;
 }
 
-.umos-hub-avatar-wrap { flex-shrink: 0; }
+.umos-hub-avatar-wrap { flex-shrink: 0; position: relative; z-index: 1; }
 
 .umos-hub-avatar-img {
-	width: 72px;
-	height: 72px;
+	width: 60px;
+	height: 60px;
 	border-radius: 50%;
 	object-fit: cover;
-	border: 2px solid var(--interactive-accent);
+	border: 2px solid var(--background-secondary);
+	box-shadow: 0 0 0 2px var(--umos-accent), 0 3px 12px rgba(var(--umos-accent-rgb), 0.28);
 	display: block;
 }
 
 .umos-hub-avatar-placeholder {
-	width: 72px;
-	height: 72px;
+	width: 60px;
+	height: 60px;
 	border-radius: 50%;
 	background: var(--background-modifier-border);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 2em;
+	font-size: 1.7em;
+	border: 2px solid var(--background-secondary);
+	box-shadow: 0 0 0 2px var(--umos-accent);
 }
 
 .umos-hub-profile-info {
 	display: flex;
 	flex-direction: column;
-	gap: 3px;
+	gap: 2px;
 	min-width: 0;
+	flex: 1;
+	position: relative;
+	z-index: 1;
 }
 
 .umos-hub-nickname {
-	font-size: 1.3em;
+	font-size: 1.2em;
 	font-weight: 700;
 	color: var(--text-normal);
 }
 
 .umos-hub-date {
-	font-size: 0.82em;
+	font-size: 0.8em;
 	color: var(--text-muted);
 }
 
 .umos-hub-greeting {
-	font-size: 0.85em;
-	color: var(--interactive-accent);
+	font-size: 0.82em;
+	color: var(--umos-accent-light, var(--interactive-accent));
 	font-weight: 500;
 }
 
-/* Quick actions */
+/* ── Quick actions ── */
 .umos-hub-actions {
 	display: flex;
-	gap: 10px;
+	gap: 8px;
 }
 
 .umos-hub-action-btn {
@@ -11715,9 +11743,9 @@ body.theme-dark .umos-balance-history-item {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 6px;
-	padding: 12px 8px;
-	border-radius: var(--umos-radius, 10px);
+	gap: 5px;
+	padding: 10px 6px;
+	border-radius: 10px;
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	cursor: pointer;
@@ -11754,21 +11782,27 @@ body.theme-dark .umos-balance-history-item {
 	white-space: nowrap;
 }
 
-/* Stats grid */
+/* ── Stats grid ── */
 .umos-hub-stats-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-	gap: 10px;
+	grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+	gap: 8px;
 }
 
 .umos-hub-stat-card {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
-	padding: 12px 14px;
-	border-radius: var(--umos-radius, 10px);
+	padding: 10px 12px;
+	border-radius: 10px;
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
+	transition: border-color 0.15s;
+}
+
+/* Full-width stats+charts card */
+.umos-hub-stat-metrics {
+	grid-column: 1 / -1;
 }
 
 .umos-hub-stat-card.umos-hub-stat-good   { border-color: rgba(16,185,129,0.4); }
@@ -11802,15 +11836,45 @@ body.theme-dark .umos-balance-history-item {
 	white-space: nowrap;
 }
 
-/* Sections */
+/* ── Metrics inner grid (inside stats card) ── */
+.umos-hub-metrics-inner {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 6px 12px;
+	margin-top: 6px;
+}
+.umos-hub-metric-row {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+}
+.umos-hub-metric-icon { font-size: 0.88em; flex-shrink: 0; line-height: 1; }
+.umos-hub-metric-name {
+	font-size: 0.7em;
+	color: var(--text-muted);
+	flex: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.umos-hub-metric-val {
+	font-size: 0.82em;
+	font-weight: 700;
+	color: var(--text-normal);
+	flex-shrink: 0;
+}
+.umos-hub-metric-spark { flex-shrink: 0; opacity: 0.85; display: block; }
+
+/* ── Sections ── */
 .umos-hub-section {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 7px;
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--umos-radius, 10px);
-	padding: 14px;
+	border-radius: 10px;
+	padding: 12px;
 }
 
 .umos-hub-section-title-row {
@@ -11865,54 +11929,102 @@ body.theme-dark .umos-balance-history-item {
 	border-radius: 7px;
 	background: var(--background-primary);
 	border: 1px solid transparent;
+	position: relative;
 }
 
 .umos-hub-schedule-row.is-current {
 	background: rgba(16,185,129,0.08);
 	border-color: rgba(16,185,129,0.3);
+	padding-right: 62px;
+	padding-bottom: 18px;
 }
 
 .umos-hub-schedule-row.is-next {
 	background: rgba(99,102,241,0.07);
 	border-color: rgba(99,102,241,0.25);
+	padding-right: 78px;
+	padding-bottom: 18px;
 }
 
 .umos-hub-schedule-time {
-	font-size: 0.75em;
+	font-size: 0.72em;
 	color: var(--text-faint);
 	font-family: var(--font-monospace);
-	flex-shrink: 0;
-	min-width: 90px;
+	white-space: nowrap;
+	line-height: 1.3;
+}
+.umos-hub-schedule-time-end {
+	color: var(--text-faint);
+	opacity: 0.6;
 }
 
-.umos-hub-schedule-info { flex: 1; min-width: 0; }
+.umos-hub-schedule-info { flex: 1; min-width: 0; overflow: hidden; }
 
 .umos-hub-schedule-subject {
 	font-size: 0.85em;
 	font-weight: 600;
 	color: var(--text-normal);
+	white-space: nowrap;
 	overflow: hidden;
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	line-clamp: 2;
+	text-overflow: ellipsis;
 }
 
 .umos-hub-schedule-room {
 	font-size: 0.72em;
 	color: var(--text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .umos-hub-schedule-badge {
-	font-size: 0.68em;
+	position: absolute;
+	top: 7px;
+	right: 8px;
+	font-size: 0.63em;
 	font-weight: 700;
-	padding: 2px 7px;
+	padding: 2px 8px;
 	border-radius: 10px;
-	flex-shrink: 0;
+	white-space: nowrap;
 }
 
 .umos-hub-schedule-badge.is-current { background: rgba(16,185,129,0.18); color: #10b981; }
 .umos-hub-schedule-badge.is-next    { background: rgba(99,102,241,0.15); color: #818cf8; }
+
+/* ── Schedule pair number ── */
+.umos-hub-schedule-pair-num {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: rgba(var(--umos-accent-rgb), 0.12);
+	color: var(--text-faint);
+	font-size: 0.64em;
+	font-weight: 700;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+/* ── Schedule time column (time + countdown stacked) ── */
+.umos-hub-schedule-time-col {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	flex-shrink: 0;
+}
+
+.umos-hub-schedule-cd {
+	position: absolute;
+	bottom: 5px;
+	right: 8px;
+	font-size: 0.62em;
+	font-weight: 600;
+	font-family: var(--font-monospace);
+	opacity: 0.85;
+}
+.umos-hub-schedule-cd.is-current { color: #10b981; }
+.umos-hub-schedule-cd.is-next    { color: #818cf8; }
 
 /* Task stats */
 .umos-hub-task-nums { display: flex; gap: 12px; }
@@ -12007,18 +12119,55 @@ body.theme-dark .umos-balance-history-item {
 	text-align: center;
 }
 
-/* Mobile */
-@media (max-width: 560px) {
-	.umos-hub-modal { width: 100vw !important; max-height: 100vh !important; border-radius: 0 !important; }
-	.umos-hub-content { padding: 14px; gap: 12px; }
-	.umos-hub-avatar-img,
-	.umos-hub-avatar-placeholder { width: 54px; height: 54px; }
-	.umos-hub-nickname { font-size: 1.1em; }
-	.umos-hub-actions { gap: 7px; }
-	.umos-hub-action-btn { padding: 10px 5px; }
-	.umos-hub-stats-grid { grid-template-columns: 1fr 1fr; }
-	.umos-hub-schedule-time { min-width: 76px; }
-}
+/* ══ Mobile (.is-mobile добавляет Obsidian на <body>) ══
+   Профиль — простой flat-layout, без трюков с overflow.
+   Stat-карточки — 3 в ряд через repeat(3, 1fr).         */
+
+.is-mobile .umos-hub-content  { padding: 10px; gap: 8px; }
+
+/* Profile: убираем ::before/::after декорации, уменьшаем */
+.is-mobile .umos-hub-profile  { padding: 11px 13px; gap: 11px; }
+.is-mobile .umos-hub-profile::before,
+.is-mobile .umos-hub-profile::after { display: none; }
+.is-mobile .umos-hub-avatar-img,
+.is-mobile .umos-hub-avatar-placeholder { width: 48px; height: 48px; }
+.is-mobile .umos-hub-nickname  { font-size: 1.05em; }
+.is-mobile .umos-hub-date      { font-size: 0.75em; }
+.is-mobile .umos-hub-greeting  { font-size: 0.77em; }
+
+/* Actions */
+.is-mobile .umos-hub-actions        { gap: 5px; }
+.is-mobile .umos-hub-action-btn     { padding: 8px 4px; gap: 3px; }
+.is-mobile .umos-hub-action-icon    { width: 22px; height: 22px; }
+.is-mobile .umos-hub-action-label   { font-size: 0.68em; }
+
+/* Stat cards: 3 в ряд — баланс/помодоро/цели на одной строке */
+.is-mobile .umos-hub-stats-grid     { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.is-mobile .umos-hub-stat-card      { padding: 8px 7px; }
+.is-mobile .umos-hub-stat-emoji     { font-size: 1em; }
+.is-mobile .umos-hub-stat-value     { font-size: 0.88em; }
+.is-mobile .umos-hub-stat-sub       { font-size: 0.63em; }
+
+/* Metrics card inner grid: 1 column on mobile */
+.is-mobile .umos-hub-metrics-inner  { grid-template-columns: 1fr 1fr; gap: 5px 8px; }
+
+/* Sections */
+.is-mobile .umos-hub-section        { padding: 10px; gap: 6px; }
+.is-mobile .umos-hub-section-title  { font-size: 0.78em; }
+
+/* Schedule */
+.is-mobile .umos-hub-schedule-row   { gap: 6px; padding: 6px 8px; }
+.is-mobile .umos-hub-schedule-time-col { min-width: 60px; }
+.is-mobile .umos-hub-schedule-time  { font-size: 0.7em; }
+.is-mobile .umos-hub-schedule-cd    { font-size: 0.6em; }
+.is-mobile .umos-hub-schedule-subject { font-size: 0.8em; }
+.is-mobile .umos-hub-schedule-badge { font-size: 0.6em; padding: 2px 5px; }
+.is-mobile .umos-hub-schedule-pair-num { width: 17px; height: 17px; font-size: 0.58em; }
+
+/* Tasks */
+.is-mobile .umos-hub-task-num-val   { font-size: 1.35em; }
+.is-mobile .umos-hub-task-num-label { font-size: 0.62em; }
+.is-mobile .umos-hub-task-chip      { font-size: 0.68em; }
 
 
 /* ============================================================

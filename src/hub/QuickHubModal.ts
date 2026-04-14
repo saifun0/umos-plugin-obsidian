@@ -10,6 +10,7 @@ import {
 	getTodaySlots,
 	getFilledSlots,
 	getCurrentSlotInfo,
+	formatSlotCountdown,
 } from "../productivity/schedule/ScheduleData";
 
 export class QuickHubModal extends Modal {
@@ -145,56 +146,83 @@ export class QuickHubModal extends Modal {
 	// ── Quick stat cards ──────────────────────────────────────────────────
 
 	private renderStats(parent: HTMLElement): void {
-		const grid = parent.createDiv({ cls: "umos-hub-stats-grid" });
+		this.renderStatsMini(parent);
+	}
 
-		// Finance
-		if (this.financeService) {
-			const bal = this.financeService.getBalance();
-			const cur = this.plugin.settings.financeCurrency || "₽";
-			const stats = this.financeService.getCurrentMonthStats();
-			const net = stats.income - stats.spent;
-			this.makeStatCard(grid, "💰", "Баланс",
-				`${bal < 0 ? "−" : ""}${Math.abs(bal).toLocaleString("ru-RU")}${cur}`,
-				net >= 0
-					? `+${net.toLocaleString("ru-RU")}${cur} за месяц`
-					: `${net.toLocaleString("ru-RU")}${cur} за месяц`,
-				bal < 0 ? "danger" : net < 0 ? "warn" : "good"
-			);
+	private renderStatsMini(parent: HTMLElement): void {
+		const engine = this.plugin.statsEngine;
+		if (!engine) return;
+
+		const metrics = (this.plugin.settings.homeStatsMetrics?.length > 0
+			? this.plugin.settings.homeStatsMetrics
+			: ["mood", "productivity", "sleep", "prayer_count"]).slice(0, 6);
+
+		const ICONS: Record<string, string> = {
+			mood: "😊", productivity: "⚡", sleep: "😴", prayer_count: "🕌",
+			exercise: "🏋️", reading: "📚", water: "💧", quran: "📖", study: "🎓",
+		};
+		const NAMES: Record<string, string> = {
+			mood: "Настроение", productivity: "Продукт.", sleep: "Сон",
+			prayer_count: "Намазы", exercise: "Упражн.", reading: "Чтение",
+			water: "Вода", quran: "Коран", study: "Учёба",
+		};
+		const COLORS: Record<string, string> = {
+			mood: "#f39c12", productivity: "#3498db", sleep: "#9b59b6",
+			prayer_count: "#27ae60", exercise: "#e74c3c", reading: "#1abc9c",
+			water: "#2980b9", quran: "#27ae60", study: "#8e44ad",
+		};
+
+		const card = parent.createDiv({ cls: "umos-hub-stat-card umos-hub-stat-neutral umos-hub-stat-metrics" });
+		card.createDiv({ cls: "umos-hub-stat-emoji", text: "📊" });
+		card.createDiv({ cls: "umos-hub-stat-label", text: "Статистика · 14д" });
+
+		const inner = card.createDiv({ cls: "umos-hub-metrics-inner" });
+
+		for (const metric of metrics) {
+			const result = engine.getMetricData(metric, 14);
+			const values = result.data.map(d => d.value);
+
+			const row = inner.createDiv({ cls: "umos-hub-metric-row" });
+			row.createSpan({ cls: "umos-hub-metric-icon", text: ICONS[metric] || "📊" });
+			row.createSpan({ cls: "umos-hub-metric-name", text: NAMES[metric] || metric });
+			row.createSpan({
+				cls: "umos-hub-metric-val",
+				text: metric === "prayer_count" ? `${result.avg}/5` : String(result.avg),
+			});
+
+			if (values.length >= 3) {
+				row.appendChild(this.makeMiniSparkline(values, COLORS[metric] || "#888"));
+			}
 		}
+	}
 
-		// Pomodoro
-		const pomo = this.plugin.data_store.pomodoro;
-		this.makeStatCard(grid, "🍅", "Помодоро",
-			`${pomo.completedToday} сегодня`,
-			`${pomo.totalCompleted} всего`,
-			pomo.completedToday >= 4 ? "good" : "neutral"
-		);
+	private makeMiniSparkline(values: number[], color: string): SVGElement {
+		const W = 44, H = 16;
+		const min = Math.min(...values);
+		const max = Math.max(...values);
+		const range = max - min || 1;
 
-		// Goals
-		const goals = this.plugin.settings.goals || [];
-		const activeGoals = goals.filter(g => g.status !== "completed" && g.status !== "archived");
-		const doneGoals = goals.filter(g => g.status === "completed");
-		this.makeStatCard(grid, "🎯", "Цели",
-			`${activeGoals.length} активных`,
-			`${doneGoals.length} завершено`,
-			"neutral"
-		);
+		const pts = values.map((v, i) => {
+			const x = (i / (values.length - 1)) * W;
+			const y = H - 1 - ((v - min) / range) * (H - 2);
+			return `${x.toFixed(1)},${y.toFixed(1)}`;
+		}).join(" ");
 
-		// Next exam
-		const exams = this.plugin.data_store.exams || [];
-		const today = moment().format("YYYY-MM-DD");
-		const upcoming = exams
-			.filter(e => e.date >= today)
-			.sort((a, b) => a.date.localeCompare(b.date));
-		if (upcoming.length > 0) {
-			const next = upcoming[0];
-			const daysLeft = moment(next.date).diff(moment(today), "days");
-			this.makeStatCard(grid, "📝", "Экзамен",
-				next.name.length > 18 ? next.name.slice(0, 18) + "…" : next.name,
-				daysLeft === 0 ? "Сегодня!" : `Через ${daysLeft} дн.`,
-				daysLeft <= 3 ? "danger" : daysLeft <= 7 ? "warn" : "neutral"
-			);
-		}
+		const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+		svg.setAttribute("width", String(W));
+		svg.setAttribute("height", String(H));
+		svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+		svg.setAttribute("class", "umos-hub-metric-spark");
+
+		const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+		poly.setAttribute("points", pts);
+		poly.setAttribute("fill", "none");
+		poly.setAttribute("stroke", color);
+		poly.setAttribute("stroke-width", "1.5");
+		poly.setAttribute("stroke-linecap", "round");
+		poly.setAttribute("stroke-linejoin", "round");
+		svg.appendChild(poly);
+		return svg;
 	}
 
 	private makeStatCard(
@@ -231,16 +259,38 @@ export class QuickHubModal extends Modal {
 		const { currentSlot, nextSlot } = getCurrentSlotInfo(allSlots);
 
 		const list = section.createDiv({ cls: "umos-hub-schedule-list" });
-		for (const slot of slots) {
+		for (let i = 0; i < slots.length; i++) {
+			const slot = slots[i];
 			const isCurrent = slot === currentSlot;
 			const isNext = slot === nextSlot;
+
 			const row = list.createDiv({
 				cls: `umos-hub-schedule-row${isCurrent ? " is-current" : ""}${isNext ? " is-next" : ""}`,
 			});
-			row.createDiv({ cls: "umos-hub-schedule-time", text: `${slot.startTime}–${slot.endTime}` });
+
+			// Pair number
+			row.createDiv({ cls: "umos-hub-schedule-pair-num", text: String(i + 1) });
+
+			// Time (start + end stacked)
+			const timeCol = row.createDiv({ cls: "umos-hub-schedule-time-col" });
+			timeCol.createDiv({ cls: "umos-hub-schedule-time", text: slot.startTime });
+			timeCol.createDiv({ cls: "umos-hub-schedule-time umos-hub-schedule-time-end", text: slot.endTime });
+
+			// Countdown — bottom-right corner of row (absolute)
+			if (isCurrent) {
+				const cd = formatSlotCountdown(slot.endTime);
+				if (cd) row.createDiv({ cls: "umos-hub-schedule-cd is-current", text: `ещё ${cd}` });
+			} else if (isNext) {
+				const cd = formatSlotCountdown(slot.startTime);
+				if (cd) row.createDiv({ cls: "umos-hub-schedule-cd is-next", text: `через ${cd}` });
+			}
+
+			// Subject + room
 			const info = row.createDiv({ cls: "umos-hub-schedule-info" });
 			info.createDiv({ cls: "umos-hub-schedule-subject", text: slot.subject });
 			if (slot.room) info.createDiv({ cls: "umos-hub-schedule-room", text: `📍 ${slot.room}` });
+
+			// Status badge
 			if (isCurrent) row.createDiv({ cls: "umos-hub-schedule-badge is-current", text: "Сейчас" });
 			else if (isNext) row.createDiv({ cls: "umos-hub-schedule-badge is-next", text: "Следующая" });
 		}

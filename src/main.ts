@@ -65,7 +65,7 @@ export default class UmOSPlugin extends Plugin {
 	private prayerService: PrayerService | null = null;
 	private prayerStatusBar: PrayerStatusBar | null = null;
 	private quranService: QuranService | null = null;
-	private statsEngine: StatsEngine | null = null;
+	public statsEngine: StatsEngine | null = null;
 	private sharedFmHelper: FrontmatterHelper | null = null;
 	private statusBarItemEl: HTMLElement | null = null;
 	private gifOverlayEl: HTMLElement | null = null;
