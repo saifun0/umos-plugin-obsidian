@@ -63,6 +63,9 @@ export class TaskEditorModal extends Modal {
                     });
             });
 
+        // Tags — with autocomplete
+        this.renderTagsField(contentEl);
+
         // Due Date
         new Setting(contentEl)
             .setName('Срок')
@@ -107,9 +110,6 @@ export class TaskEditorModal extends Modal {
                         this.task.doneDate = value || null;
                     });
             });
-
-        // Tags — with autocomplete
-        this.renderTagsField(contentEl);
 
         // Recurrence
         new Setting(contentEl)
@@ -200,8 +200,7 @@ export class TaskEditorModal extends Modal {
 
     private renderTagsField(container: HTMLElement): void {
         const setting = new Setting(container)
-            .setName('Теги')
-            .setDesc('tasks/ добавляется автоматически. Нажмите Enter или запятую для добавления.');
+            .setName('Теги');
 
         const fieldWrap = setting.controlEl.createDiv({ cls: 'umos-tag-field-wrap' });
 

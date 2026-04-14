@@ -1,4 +1,4 @@
-import { App, Modal } from "obsidian";
+import { App, Modal, Setting } from "obsidian";
 
 interface FormatItem {
 	id: string;
@@ -183,6 +183,15 @@ const ITEMS: FormatItem[] = [
 		snippet: "```info-umos\ntitle: Имя / Название\nimage: 00 Files/photo.png\ncaption: Подпись к фото\n---\nИнформация\nПоле 1     | Значение 1\nПоле 2     | Значение 2\n\nДеятельность\nРоль       | Описание\n```",
 		isBlock: true,
 	},
+	{
+		id: "kanban-board",
+		category: "Макет",
+		icon: "📋",
+		name: "Канбан-доска",
+		desc: "Доска с колонками и карточками",
+		snippet: "",
+		isBlock: true,
+	},
 
 	// ── Инлайн-метки ──────────────────────────────────────────────────
 	{
@@ -244,7 +253,7 @@ export class FormatPickerModal extends Modal {
 	private listEl!: HTMLElement;
 	private inputEl!: HTMLInputElement;
 
-	constructor(app: App) {
+	constructor(app: App, private existingBoardIds: string[] = []) {
 		super(app);
 	}
 
@@ -378,6 +387,32 @@ export class FormatPickerModal extends Modal {
 	}
 
 	private insertItem(item: FormatItem): void {
+		if (item.id === "kanban-board") {
+			const app = this.app;
+			const boardIds = this.existingBoardIds;
+			this.close();
+			new KanbanBoardPickerModal(app, boardIds, (boardId) => {
+				const snippet = "```kanban-board\nid: " + boardId + "\n```";
+				const editor = app.workspace.activeEditor?.editor;
+				if (!editor) return;
+				const cursor = editor.getCursor();
+				const lineText = editor.getLine(cursor.line);
+				const beforeCursor = lineText.slice(0, cursor.ch);
+				if (beforeCursor.trim() !== "") {
+					editor.replaceSelection("\n\n" + snippet);
+				} else if (cursor.line > 0) {
+					const prevLine = editor.getLine(cursor.line - 1);
+					if (prevLine.trim() !== "") {
+						editor.replaceSelection("\n" + snippet);
+					} else {
+						editor.replaceSelection(snippet);
+					}
+				} else {
+					editor.replaceSelection(snippet);
+				}
+			}).open();
+			return;
+		}
 		if (item.isCssClass) {
 			this.addCssClass(item.snippet);
 		} else {
@@ -430,5 +465,79 @@ export class FormatPickerModal extends Modal {
 				if (fm.cssclasses !== cls) fm.cssclasses = [fm.cssclasses, cls];
 			}
 		});
+	}
+}
+
+// ── Kanban Board Picker Modal ────────────────────────────────────────────
+
+class KanbanBoardPickerModal extends Modal {
+	private inputEl!: HTMLInputElement;
+
+	constructor(
+		app: App,
+		private existingIds: string[],
+		private onSelect: (id: string) => void,
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		this.modalEl.addClass("umos-format-picker");
+		const { contentEl } = this;
+		contentEl.empty();
+
+		contentEl.createEl("h3", { text: "Канбан-доска" });
+
+		const inputSetting = new Setting(contentEl).setName("Название доски");
+		inputSetting.addText(t => {
+			t.setPlaceholder("my-board");
+			this.inputEl = t.inputEl;
+			this.inputEl.style.width = "100%";
+			this.inputEl.addEventListener("keydown", (e) => {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					const val = this.inputEl.value.trim();
+					if (val) this.pick(val);
+				}
+			});
+		});
+
+		if (this.existingIds.length > 0) {
+			contentEl.createEl("div", {
+				text: "Существующие доски",
+				cls: "umos-fp-category",
+			});
+
+			const list = contentEl.createDiv({ cls: "umos-fp-list umos-kb-picker-list" });
+			for (const id of this.existingIds) {
+				const row = list.createDiv({ cls: "umos-fp-item" });
+				row.createSpan({ cls: "umos-fp-item-icon", text: "📋" });
+				const text = row.createDiv({ cls: "umos-fp-item-text" });
+				text.createSpan({ cls: "umos-fp-item-name", text: id });
+				row.addEventListener("click", () => this.pick(id));
+				row.addEventListener("mouseenter", () => {
+					list.querySelectorAll(".umos-fp-item").forEach(el => el.removeClass("is-focused"));
+					row.addClass("is-focused");
+				});
+			}
+		}
+
+		new Setting(contentEl).addButton(btn => {
+			btn.setButtonText("Вставить").setCta().onClick(() => {
+				const val = this.inputEl.value.trim() || "default";
+				this.pick(val);
+			});
+		});
+
+		setTimeout(() => this.inputEl.focus(), 50);
+	}
+
+	private pick(id: string): void {
+		this.close();
+		this.onSelect(id);
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
 	}
 }

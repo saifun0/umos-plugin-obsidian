@@ -1917,6 +1917,88 @@ body.theme-dark .umos-stats-prayer-missed {
 	}
 }
 
+/* ============ Words of Day Widget ============ */
+.umos-wod-widget {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.umos-wod-header {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.umos-wod-title {
+	font-size: 1.15em;
+	font-weight: 700;
+	color: var(--text-normal);
+}
+
+.umos-wod-subtitle {
+	font-size: 0.8em;
+	color: var(--text-muted);
+}
+
+.umos-wod-empty {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	font-style: italic;
+	padding: 12px 0;
+}
+
+.umos-wod-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.umos-wod-card {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 8px 14px;
+	border-radius: var(--radius-m, 8px);
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	min-width: 80px;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.umos-wod-card:hover {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.umos-wod-card-word {
+	font-size: 0.95em;
+	font-weight: 600;
+	color: var(--text-normal);
+	line-height: 1.3;
+}
+
+.umos-wod-card-date {
+	font-size: 0.68em;
+	color: var(--text-muted);
+	letter-spacing: 0.3px;
+}
+
+@media (max-width: 600px) {
+	.umos-wod-grid {
+		gap: 6px;
+	}
+
+	.umos-wod-card {
+		padding: 6px 10px;
+		min-width: 70px;
+	}
+
+	.umos-wod-card-word {
+		font-size: 0.85em;
+	}
+}
+
 /* ============================================================
    SCHEDULE — Этап 5
    ============================================================ */
@@ -7566,6 +7648,38 @@ body.theme-dark .umos-task-item:not(.is-subtask) > .umos-task-item-self:hover {
 	background: rgba(var(--interactive-accent-rgb, 99,102,241), 0.08);
 }
 
+/* ── Tag field: mobile fixes ── */
+.is-mobile .umos-tag-dropdown {
+	top: auto;
+	bottom: calc(100% + 4px);
+}
+
+.is-mobile .umos-tag-chip-remove {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 22px;
+	height: 22px;
+	min-width: 22px;
+	min-height: 22px;
+	padding: 0 !important;
+	margin: 0;
+	font-size: 14px;
+	line-height: 1;
+}
+
+.is-mobile .umos-modal-subtask-remove {
+	-webkit-appearance: none;
+	appearance: none;
+	min-width: 32px;
+	min-height: 32px;
+	padding: 0 !important;
+	font-size: 16px;
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
 /* Active filter button in header */
 .umos-tasks-header-actions .clickable-icon.is-active {
 	color: var(--interactive-accent);
@@ -7732,7 +7846,12 @@ body.theme-dark .umos-task-item:not(.is-subtask) > .umos-task-item-self:hover {
 		padding: 9px 10px;
 	}
 
+	.umos-task-main {
+		gap: 4px;
+	}
+
 	.umos-task-description {
+		flex: 0 0 100%;
 		font-size: 0.9em;
 	}
 
@@ -7755,11 +7874,19 @@ body.theme-dark .umos-task-item:not(.is-subtask) > .umos-task-item-self:hover {
 		font-size: 0.65em !important;
 	}
 
-	/* Progress bar: absolutely positioned strip at bottom of the pill */
+	/* Summary bar: compact on mobile */
 	.umos-tasks-summary-bar {
+		gap: 4px 8px;
+		padding: 4px 10px;
+		padding-bottom: 8px;
+		border-radius: 12px;
 		position: relative;
-		padding-bottom: 10px;
 		overflow: hidden;
+	}
+
+	.umos-tasks-stat {
+		font-size: 0.7em;
+		gap: 3px;
 	}
 
 	.umos-tasks-stat-progress {
@@ -7768,7 +7895,7 @@ body.theme-dark .umos-task-item:not(.is-subtask) > .umos-task-item-self:hover {
 		left: 0;
 		right: 0;
 		width: auto;
-		height: 4px;
+		height: 3px;
 		margin-left: 0;
 		border-radius: 0;
 		flex-basis: auto;
@@ -11936,14 +12063,14 @@ body.theme-dark .umos-balance-history-item {
 	background: rgba(16,185,129,0.08);
 	border-color: rgba(16,185,129,0.3);
 	padding-right: 62px;
-	padding-bottom: 18px;
+	min-height: 50px;
 }
 
 .umos-hub-schedule-row.is-next {
 	background: rgba(99,102,241,0.07);
 	border-color: rgba(99,102,241,0.25);
 	padding-right: 78px;
-	padding-bottom: 18px;
+	min-height: 50px;
 }
 
 .umos-hub-schedule-time {
@@ -12016,7 +12143,7 @@ body.theme-dark .umos-balance-history-item {
 
 .umos-hub-schedule-cd {
 	position: absolute;
-	bottom: 5px;
+	top: 27px;
 	right: 8px;
 	font-size: 0.62em;
 	font-weight: 600;
@@ -12027,34 +12154,39 @@ body.theme-dark .umos-balance-history-item {
 .umos-hub-schedule-cd.is-next    { color: #818cf8; }
 
 /* Task stats */
-.umos-hub-task-nums { display: flex; gap: 12px; }
+.umos-hub-task-nums { display: flex; gap: 6px; }
 
 .umos-hub-task-num-col {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 2px;
+	gap: 1px;
 	flex: 1;
 }
 
 .umos-hub-task-num-val {
-	font-size: 1.6em;
+	font-size: 1.25em;
 	font-weight: 800;
 	line-height: 1;
 }
 
 .umos-hub-task-num-label {
-	font-size: 0.68em;
+	font-size: 0.62em;
 	color: var(--text-faint);
 	text-align: center;
 }
 
-.umos-hub-task-bar-wrap { display: flex; flex-direction: column; gap: 4px; }
+.umos-hub-task-bar-wrap {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+}
 
-.umos-hub-task-bar-label { font-size: 0.75em; color: var(--text-muted); }
+.umos-hub-task-bar-label { font-size: 0.7em; color: var(--text-muted); white-space: nowrap; }
 
 .umos-hub-task-bar-bg {
-	height: 6px;
+	flex: 1;
+	height: 4px;
 	border-radius: 3px;
 	background: var(--background-modifier-border);
 	overflow: hidden;
@@ -12067,11 +12199,11 @@ body.theme-dark .umos-balance-history-item {
 	transition: width 0.4s ease;
 }
 
-.umos-hub-task-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.umos-hub-task-meta { display: flex; flex-wrap: wrap; gap: 4px; }
 
 .umos-hub-task-chip {
-	font-size: 0.75em;
-	padding: 3px 9px;
+	font-size: 0.62em;
+	padding: 1px 6px;
 	border-radius: 20px;
 	background: var(--background-modifier-border);
 	color: var(--text-muted);
@@ -12082,8 +12214,8 @@ body.theme-dark .umos-balance-history-item {
 .umos-hub-daily-bar {
 	display: flex;
 	align-items: flex-end;
-	gap: 4px;
-	height: 44px;
+	gap: 3px;
+	height: 30px;
 }
 
 .umos-hub-daily-col {

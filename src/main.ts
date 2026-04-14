@@ -26,6 +26,7 @@ import { RamadanWidget } from "./religion/ramadan/RamadanWidget";
 import { AyatWidget } from "./religion/quran/AyatWidget";
 import { QuranTracker } from "./religion/quran/QuranTracker";
 import { StatsWidget } from "./stats/StatsWidget";
+import { WordsOfDayWidget } from "./stats/WordsOfDayWidget";
 import { ScheduleWidget } from "./productivity/schedule/ScheduleWidget";
 import { TasksWidget } from "./productivity/tasks/TasksWidget";
 import { TasksStatsWidget } from "./productivity/tasks/TasksStatsWidget";
@@ -485,6 +486,15 @@ export default class UmOSPlugin extends Plugin {
 				const container = el.createDiv({ cls: "umos-widget-container" });
 				ctx.addChild(new StatsWidget(container, { metrics, period: Number(config.period) || 14, chart: (config.chart as "sparkline" | "bar" | "ring" | "none") || "sparkline", compare: config.compare === true || config.compare === "true" }, this.app, this.statsEngine, this.eventBus));
 			}],
+			["words-of-day", (source, el, ctx) => {
+				if (!this.statsEngine) return;
+				const config = parseWidgetConfig(source);
+				const container = el.createDiv({ cls: "umos-widget-container" });
+				ctx.addChild(new WordsOfDayWidget(container, {
+					period: Number(config.period) || 30,
+					field: String(config.field || "word_of_day"),
+				}, this.statsEngine, this.eventBus));
+			}],
 			["schedule", (source, el, ctx) => {
 				const config = parseWidgetConfig(source);
 				const container = el.createDiv({ cls: "umos-widget-container" });
@@ -846,7 +856,8 @@ export default class UmOSPlugin extends Plugin {
 			id: "umos:format-picker",
 			name: "Форматирование текста",
 			callback: () => {
-				new FormatPickerModal(this.app).open();
+				const boardIds = Object.keys(this.data_store.kanbanBoards || {});
+				new FormatPickerModal(this.app, boardIds).open();
 			},
 		});
 

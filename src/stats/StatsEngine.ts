@@ -1,7 +1,7 @@
-import { App, TFile, TFolder, CachedMetadata } from "obsidian";
+import { App, TFile, TFolder, CachedMetadata, normalizePath } from "obsidian";
 import { EventBus } from "../EventBus";
 import { UmOSSettings } from "../settings/Settings";
-import { formatDate } from "../utils/date";
+import { formatDate, getTodayInTimezone } from "../utils/date";
 
 export interface MetricData {
 	date: string;
@@ -35,7 +35,19 @@ export class StatsEngine {
 	 * Инициализация: первичный скан + подписка на изменения.
 	 */
 	init(registerEvent: (ref: ReturnType<typeof this.app.metadataCache.on>) => void): void {
-		this.scanAllDailyNotes();
+		// On mobile, metadata cache may not be ready yet at plugin load.
+		// Wait for "resolved" event before scanning to ensure frontmatter is available.
+		const mc = this.app.metadataCache as any;
+		if (mc.resolved) {
+			this.scanAllDailyNotes();
+		} else {
+			registerEvent(
+				this.app.metadataCache.on("resolved", () => {
+					this.scanAllDailyNotes();
+					this.eventBus.emit("stats:recalculated", { period: 0 });
+				})
+			);
+		}
 
 		registerEvent(
 			this.app.metadataCache.on("changed", (file) => {
@@ -65,7 +77,6 @@ export class StatsEngine {
 		this.eventBus.on("frontmatter:changed", (data) => {
 			const file = this.app.vault.getAbstractFileByPath(data.path);
 			if (file instanceof TFile && this.isDailyNote(file)) {
-				// Обновляем кеш для этого файла
 				const fileCache = this.cache.get(file.path) || new Map<string, unknown>();
 				fileCache.set(data.property, data.value);
 				this.cache.set(file.path, fileCache);
@@ -77,7 +88,7 @@ export class StatsEngine {
 	 * Получает данные метрики за период (дней назад от сегодня).
 	 */
 	getMetricData(metric: string, periodDays: number): StatsResult {
-		const today = new Date();
+		const today = getTodayInTimezone();
 		const data: MetricData[] = [];
 
 		for (let i = periodDays - 1; i >= 0; i--) {
@@ -151,6 +162,29 @@ export class StatsEngine {
 	}
 
 	/**
+	 * Получает текстовые данные метрики за период (для нечисловых полей вроде word_of_day).
+	 */
+	getTextDataForPeriod(metric: string, periodDays: number): { date: string; value: string }[] {
+		const today = getTodayInTimezone();
+		const result: { date: string; value: string }[] = [];
+
+		for (let i = periodDays - 1; i >= 0; i--) {
+			const date = new Date(today);
+			date.setDate(date.getDate() - i);
+			const dateStr = formatDate(date);
+			const filePath = this.dateToFilePath(dateStr);
+			const fileCache = this.cache.get(filePath);
+			if (!fileCache) continue;
+			const value = fileCache.get(metric);
+			if (value && typeof value === "string" && value.trim()) {
+				result.push({ date: dateStr, value: value.trim() });
+			}
+		}
+
+		return result;
+	}
+
+	/**
 	 * Получает все значения frontmatter для даты.
 	 */
 	getAllValuesForDate(dateStr: string): Record<string, unknown> {
@@ -170,7 +204,7 @@ export class StatsEngine {
 	 * Вычисляет streak — последовательные дни с заполненной метрикой.
 	 */
 	private calculateStreak(metric: string): number {
-		const today = new Date();
+		const today = getTodayInTimezone();
 		let streak = 0;
 
 		for (let i = 0; i < 365; i++) {
@@ -192,7 +226,7 @@ export class StatsEngine {
 	// ─── Внутренние методы ──────────────────────
 
 	private scanAllDailyNotes(): void {
-		const folderPath = this.settings.dailyNotesPath;
+		const folderPath = normalizePath(this.settings.dailyNotesPath);
 		const folder = this.app.vault.getAbstractFileByPath(folderPath);
 
 		if (!(folder instanceof TFolder)) {
@@ -224,12 +258,13 @@ export class StatsEngine {
 	}
 
 	private isDailyNote(file: TFile): boolean {
-		return file.path.startsWith(this.settings.dailyNotesPath) && file.extension === "md";
+		const folder = normalizePath(this.settings.dailyNotesPath);
+		return file.path.startsWith(folder) && file.extension === "md";
 	}
 
 	private dateToFilePath(dateStr: string): string {
 		const fileName = this.formatDailyFileName(dateStr);
-		return `${this.settings.dailyNotesPath}/${fileName}.md`;
+		return normalizePath(`${this.settings.dailyNotesPath}/${fileName}.md`);
 	}
 
 	private formatDailyFileName(dateISO: string): string {

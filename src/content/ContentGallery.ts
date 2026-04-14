@@ -299,6 +299,16 @@ export class ContentGallery extends BaseWidget {
 	onload(): void {
 		this.allCards = this.loadAllCards();
 		super.onload();
+
+		// Reset wide mode when the user navigates away from the gallery note
+		this.registerEvent(
+			this.obsidianApp.workspace.on("active-leaf-change", () => {
+				if (this.wideView) {
+					this.applyWideMode(false);
+					this.wideView = false;
+				}
+			}),
+		);
 	}
 
 	protected render(): void {
@@ -757,6 +767,10 @@ export class ContentGallery extends BaseWidget {
 		});
 		card.style.setProperty("--cg-card-color", c.typeColor);
 		card.addEventListener("click", () => {
+			if (this.wideView) {
+				this.applyWideMode(false);
+				this.wideView = false;
+			}
 			this.obsidianApp.workspace.openLinkText(c.path, "", false);
 		});
 

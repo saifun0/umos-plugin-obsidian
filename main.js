@@ -3631,7 +3631,17 @@ var StatsEngine = class {
    * Инициализация: первичный скан + подписка на изменения.
    */
   init(registerEvent) {
-    this.scanAllDailyNotes();
+    const mc = this.app.metadataCache;
+    if (mc.resolved) {
+      this.scanAllDailyNotes();
+    } else {
+      registerEvent(
+        this.app.metadataCache.on("resolved", () => {
+          this.scanAllDailyNotes();
+          this.eventBus.emit("stats:recalculated", { period: 0 });
+        })
+      );
+    }
     registerEvent(
       this.app.metadataCache.on("changed", (file) => {
         if (this.isDailyNote(file)) {
@@ -3667,7 +3677,7 @@ var StatsEngine = class {
    * Получает данные метрики за период (дней назад от сегодня).
    */
   getMetricData(metric, periodDays) {
-    const today = /* @__PURE__ */ new Date();
+    const today = getTodayInTimezone();
     const data = [];
     for (let i = periodDays - 1; i >= 0; i--) {
       const date = new Date(today);
@@ -3730,6 +3740,27 @@ var StatsEngine = class {
     return isNaN(num) ? null : num;
   }
   /**
+   * Получает текстовые данные метрики за период (для нечисловых полей вроде word_of_day).
+   */
+  getTextDataForPeriod(metric, periodDays) {
+    const today = getTodayInTimezone();
+    const result = [];
+    for (let i = periodDays - 1; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = formatDate(date);
+      const filePath = this.dateToFilePath(dateStr);
+      const fileCache = this.cache.get(filePath);
+      if (!fileCache)
+        continue;
+      const value = fileCache.get(metric);
+      if (value && typeof value === "string" && value.trim()) {
+        result.push({ date: dateStr, value: value.trim() });
+      }
+    }
+    return result;
+  }
+  /**
    * Получает все значения frontmatter для даты.
    */
   getAllValuesForDate(dateStr) {
@@ -3747,7 +3778,7 @@ var StatsEngine = class {
    * Вычисляет streak — последовательные дни с заполненной метрикой.
    */
   calculateStreak(metric) {
-    const today = /* @__PURE__ */ new Date();
+    const today = getTodayInTimezone();
     let streak = 0;
     for (let i = 0; i < 365; i++) {
       const date = new Date(today);
@@ -3764,7 +3795,7 @@ var StatsEngine = class {
   }
   // ─── Внутренние методы ──────────────────────
   scanAllDailyNotes() {
-    const folderPath = this.settings.dailyNotesPath;
+    const folderPath = (0, import_obsidian24.normalizePath)(this.settings.dailyNotesPath);
     const folder = this.app.vault.getAbstractFileByPath(folderPath);
     if (!(folder instanceof import_obsidian24.TFolder)) {
       return;
@@ -3790,11 +3821,12 @@ var StatsEngine = class {
     this.cache.set(file.path, map);
   }
   isDailyNote(file) {
-    return file.path.startsWith(this.settings.dailyNotesPath) && file.extension === "md";
+    const folder = (0, import_obsidian24.normalizePath)(this.settings.dailyNotesPath);
+    return file.path.startsWith(folder) && file.extension === "md";
   }
   dateToFilePath(dateStr) {
     const fileName = this.formatDailyFileName(dateStr);
-    return `${this.settings.dailyNotesPath}/${fileName}.md`;
+    return (0, import_obsidian24.normalizePath)(`${this.settings.dailyNotesPath}/${fileName}.md`);
   }
   formatDailyFileName(dateISO) {
     const parts = dateISO.split("-");
@@ -6995,6 +7027,91 @@ var StatsWidget = class extends BaseWidget {
   }
 };
 
+// src/stats/WordsOfDayWidget.ts
+var MONTH_SHORT_RU = [
+  "\u044F\u043D\u0432",
+  "\u0444\u0435\u0432",
+  "\u043C\u0430\u0440",
+  "\u0430\u043F\u0440",
+  "\u043C\u0430\u0439",
+  "\u0438\u044E\u043D",
+  "\u0438\u044E\u043B",
+  "\u0430\u0432\u0433",
+  "\u0441\u0435\u043D",
+  "\u043E\u043A\u0442",
+  "\u043D\u043E\u044F",
+  "\u0434\u0435\u043A"
+];
+var WordsOfDayWidget = class extends BaseWidget {
+  constructor(containerEl, config, statsEngine, eventBus) {
+    super(containerEl);
+    this.statsEngine = statsEngine;
+    this.eventBus = eventBus;
+    this.config = config;
+  }
+  subscribeToEvents() {
+    const rerender = () => this.render();
+    return [
+      { event: "stats:recalculated", handler: rerender },
+      { event: "frontmatter:changed", handler: rerender }
+    ];
+  }
+  render() {
+    this.containerEl.empty();
+    const wrapper = createElement("div", {
+      cls: "umos-wod-widget",
+      parent: this.containerEl
+    });
+    const data = this.statsEngine.getTextDataForPeriod(this.config.field, this.config.period);
+    const header = createElement("div", {
+      cls: "umos-wod-header",
+      parent: wrapper
+    });
+    createElement("div", {
+      cls: "umos-wod-title",
+      text: "\u{1F4DD} \u0421\u043B\u043E\u0432\u0430 \u0434\u043D\u044F",
+      parent: header
+    });
+    createElement("div", {
+      cls: "umos-wod-subtitle",
+      text: `${data.length} \u0437\u0430 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 ${this.config.period} \u0434\u043D\u0435\u0439`,
+      parent: header
+    });
+    if (data.length === 0) {
+      createElement("div", {
+        cls: "umos-wod-empty",
+        text: "\u041D\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u0437\u0430 \u044D\u0442\u043E\u0442 \u043F\u0435\u0440\u0438\u043E\u0434",
+        parent: wrapper
+      });
+      return;
+    }
+    const grid = createElement("div", {
+      cls: "umos-wod-grid",
+      parent: wrapper
+    });
+    for (const entry of data) {
+      const [, m, d] = entry.date.split("-");
+      const monthIdx = parseInt(m, 10) - 1;
+      const dayNum = parseInt(d, 10);
+      const dateLabel = `${dayNum} ${MONTH_SHORT_RU[monthIdx]}`;
+      const card = createElement("div", {
+        cls: "umos-wod-card",
+        parent: grid
+      });
+      createElement("div", {
+        cls: "umos-wod-card-word",
+        text: entry.value,
+        parent: card
+      });
+      createElement("div", {
+        cls: "umos-wod-card-date",
+        text: dateLabel,
+        parent: card
+      });
+    }
+  }
+};
+
 // src/productivity/schedule/ScheduleData.ts
 var WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 var WEEKDAY_LABELS_RU = {
@@ -7460,6 +7577,7 @@ var TaskEditorModal = class extends import_obsidian28.Modal {
         this.task.priority = value;
       });
     });
+    this.renderTagsField(contentEl);
     new import_obsidian28.Setting(contentEl).setName("\u0421\u0440\u043E\u043A").addText((text) => {
       text.inputEl.type = "date";
       text.setValue(this.task.dueDate || "").onChange((value) => {
@@ -7484,7 +7602,6 @@ var TaskEditorModal = class extends import_obsidian28.Modal {
         this.task.doneDate = value || null;
       });
     });
-    this.renderTagsField(contentEl);
     new import_obsidian28.Setting(contentEl).setName("\u041F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u0435").setDesc("daily, weekly, monthly, every N days").addText((text) => {
       text.setValue(this.task.recurrence || "").setPlaceholder("weekly").onChange((value) => {
         this.task.recurrence = value || null;
@@ -7548,7 +7665,7 @@ var TaskEditorModal = class extends import_obsidian28.Modal {
   }
   // ── Tag field with autocomplete ───────────────────────────────────────
   renderTagsField(container) {
-    const setting = new import_obsidian28.Setting(container).setName("\u0422\u0435\u0433\u0438").setDesc("tasks/ \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 Enter \u0438\u043B\u0438 \u0437\u0430\u043F\u044F\u0442\u0443\u044E \u0434\u043B\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F.");
+    const setting = new import_obsidian28.Setting(container).setName("\u0422\u0435\u0433\u0438");
     const fieldWrap = setting.controlEl.createDiv({ cls: "umos-tag-field-wrap" });
     const chipsEl = fieldWrap.createDiv({ cls: "umos-tag-chips" });
     const displayTags = () => this.task.tags.map((t) => t.startsWith("tasks/") ? t.slice("tasks/".length) : t);
@@ -10985,6 +11102,14 @@ var ContentGallery = class extends BaseWidget {
   onload() {
     this.allCards = this.loadAllCards();
     super.onload();
+    this.registerEvent(
+      this.obsidianApp.workspace.on("active-leaf-change", () => {
+        if (this.wideView) {
+          this.applyWideMode(false);
+          this.wideView = false;
+        }
+      })
+    );
   }
   render() {
     this.renderInternal();
@@ -11367,6 +11492,10 @@ var ContentGallery = class extends BaseWidget {
     });
     card.style.setProperty("--cg-card-color", c.typeColor);
     card.addEventListener("click", () => {
+      if (this.wideView) {
+        this.applyWideMode(false);
+        this.wideView = false;
+      }
       this.obsidianApp.workspace.openLinkText(c.path, "", false);
     });
     const bg = createElement("div", {
@@ -16519,6 +16648,15 @@ var ITEMS = [
     snippet: "```info-umos\ntitle: \u0418\u043C\u044F / \u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\nimage: 00 Files/photo.png\ncaption: \u041F\u043E\u0434\u043F\u0438\u0441\u044C \u043A \u0444\u043E\u0442\u043E\n---\n\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F\n\u041F\u043E\u043B\u0435 1     | \u0417\u043D\u0430\u0447\u0435\u043D\u0438\u0435 1\n\u041F\u043E\u043B\u0435 2     | \u0417\u043D\u0430\u0447\u0435\u043D\u0438\u0435 2\n\n\u0414\u0435\u044F\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C\n\u0420\u043E\u043B\u044C       | \u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435\n```",
     isBlock: true
   },
+  {
+    id: "kanban-board",
+    category: "\u041C\u0430\u043A\u0435\u0442",
+    icon: "\u{1F4CB}",
+    name: "\u041A\u0430\u043D\u0431\u0430\u043D-\u0434\u043E\u0441\u043A\u0430",
+    desc: "\u0414\u043E\u0441\u043A\u0430 \u0441 \u043A\u043E\u043B\u043E\u043D\u043A\u0430\u043C\u0438 \u0438 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430\u043C\u0438",
+    snippet: "",
+    isBlock: true
+  },
   // ── Инлайн-метки ──────────────────────────────────────────────────
   {
     id: "mark-red",
@@ -16571,8 +16709,9 @@ var ITEMS = [
 ];
 var CATEGORY_ORDER = ["\u041A\u0430\u043B\u043B\u0430\u0443\u0442\u044B", "\u041C\u0430\u043A\u0435\u0442", "\u0420\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u0438", "\u041A\u043B\u0430\u0441\u0441\u044B \u0437\u0430\u043C\u0435\u0442\u043A\u0438", "\u041C\u0435\u0442\u043A\u0438"];
 var FormatPickerModal = class extends import_obsidian60.Modal {
-  constructor(app) {
+  constructor(app, existingBoardIds = []) {
     super(app);
+    this.existingBoardIds = existingBoardIds;
     this.query = "";
     this.focusedIdx = 0;
     this.visibleItems = [];
@@ -16686,6 +16825,33 @@ var FormatPickerModal = class extends import_obsidian60.Modal {
       this.insertItem(item);
   }
   insertItem(item) {
+    if (item.id === "kanban-board") {
+      const app = this.app;
+      const boardIds = this.existingBoardIds;
+      this.close();
+      new KanbanBoardPickerModal(app, boardIds, (boardId) => {
+        const snippet = "```kanban-board\nid: " + boardId + "\n```";
+        const editor = app.workspace.activeEditor?.editor;
+        if (!editor)
+          return;
+        const cursor = editor.getCursor();
+        const lineText = editor.getLine(cursor.line);
+        const beforeCursor = lineText.slice(0, cursor.ch);
+        if (beforeCursor.trim() !== "") {
+          editor.replaceSelection("\n\n" + snippet);
+        } else if (cursor.line > 0) {
+          const prevLine = editor.getLine(cursor.line - 1);
+          if (prevLine.trim() !== "") {
+            editor.replaceSelection("\n" + snippet);
+          } else {
+            editor.replaceSelection(snippet);
+          }
+        } else {
+          editor.replaceSelection(snippet);
+        }
+      }).open();
+      return;
+    }
     if (item.isCssClass) {
       this.addCssClass(item.snippet);
     } else {
@@ -16734,6 +16900,65 @@ var FormatPickerModal = class extends import_obsidian60.Modal {
           fm.cssclasses = [fm.cssclasses, cls];
       }
     });
+  }
+};
+var KanbanBoardPickerModal = class extends import_obsidian60.Modal {
+  constructor(app, existingIds, onSelect) {
+    super(app);
+    this.existingIds = existingIds;
+    this.onSelect = onSelect;
+  }
+  onOpen() {
+    this.modalEl.addClass("umos-format-picker");
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h3", { text: "\u041A\u0430\u043D\u0431\u0430\u043D-\u0434\u043E\u0441\u043A\u0430" });
+    const inputSetting = new import_obsidian60.Setting(contentEl).setName("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0434\u043E\u0441\u043A\u0438");
+    inputSetting.addText((t) => {
+      t.setPlaceholder("my-board");
+      this.inputEl = t.inputEl;
+      this.inputEl.style.width = "100%";
+      this.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const val = this.inputEl.value.trim();
+          if (val)
+            this.pick(val);
+        }
+      });
+    });
+    if (this.existingIds.length > 0) {
+      contentEl.createEl("div", {
+        text: "\u0421\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u044E\u0449\u0438\u0435 \u0434\u043E\u0441\u043A\u0438",
+        cls: "umos-fp-category"
+      });
+      const list = contentEl.createDiv({ cls: "umos-fp-list umos-kb-picker-list" });
+      for (const id of this.existingIds) {
+        const row = list.createDiv({ cls: "umos-fp-item" });
+        row.createSpan({ cls: "umos-fp-item-icon", text: "\u{1F4CB}" });
+        const text = row.createDiv({ cls: "umos-fp-item-text" });
+        text.createSpan({ cls: "umos-fp-item-name", text: id });
+        row.addEventListener("click", () => this.pick(id));
+        row.addEventListener("mouseenter", () => {
+          list.querySelectorAll(".umos-fp-item").forEach((el) => el.removeClass("is-focused"));
+          row.addClass("is-focused");
+        });
+      }
+    }
+    new import_obsidian60.Setting(contentEl).addButton((btn) => {
+      btn.setButtonText("\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u044C").setCta().onClick(() => {
+        const val = this.inputEl.value.trim() || "default";
+        this.pick(val);
+      });
+    });
+    setTimeout(() => this.inputEl.focus(), 50);
+  }
+  pick(id) {
+    this.close();
+    this.onSelect(id);
+  }
+  onClose() {
+    this.contentEl.empty();
   }
 };
 
@@ -17938,6 +18163,16 @@ var UmOSPlugin = class extends import_obsidian64.Plugin {
         const container = el.createDiv({ cls: "umos-widget-container" });
         ctx.addChild(new StatsWidget(container, { metrics, period: Number(config.period) || 14, chart: config.chart || "sparkline", compare: config.compare === true || config.compare === "true" }, this.app, this.statsEngine, this.eventBus));
       }],
+      ["words-of-day", (source, el, ctx) => {
+        if (!this.statsEngine)
+          return;
+        const config = parseWidgetConfig(source);
+        const container = el.createDiv({ cls: "umos-widget-container" });
+        ctx.addChild(new WordsOfDayWidget(container, {
+          period: Number(config.period) || 30,
+          field: String(config.field || "word_of_day")
+        }, this.statsEngine, this.eventBus));
+      }],
       ["schedule", (source, el, ctx) => {
         const config = parseWidgetConfig(source);
         const container = el.createDiv({ cls: "umos-widget-container" });
@@ -18289,7 +18524,8 @@ var UmOSPlugin = class extends import_obsidian64.Plugin {
       id: "umos:format-picker",
       name: "\u0424\u043E\u0440\u043C\u0430\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \u0442\u0435\u043A\u0441\u0442\u0430",
       callback: () => {
-        new FormatPickerModal(this.app).open();
+        const boardIds = Object.keys(this.data_store.kanbanBoards || {});
+        new FormatPickerModal(this.app, boardIds).open();
       }
     });
     this.addCommand({
