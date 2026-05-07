@@ -16,7 +16,7 @@
 |---|---|
 | ![Home Dashboard](assets/home-dashboard.png) | ![Prayer Times](assets/prayer-times.png) |
 | **Home Dashboard** — live overview with weather, prayer, tasks, stats, schedule, and quick navigation | **Prayer Times** — Aladhan-powered prayer cards with next-prayer countdown |
-| ![Tasks Dashboard](assets/tasks-dashboard.png) | ![Content Gallery](assets/content-gallery.png) |
+| ![Tasks Dashboard](assets/tasks-dashboard.png) | ![Content Gallery](assets/content-library.png) |
 | **Tasks Dashboard** — task stats, donut charts, activity, filters, and inline task management | **Content Gallery** — media library with progress, ratings, grouped cards, and filters |
 | ![Dashboard Studio](assets/dashboard-studio.png) | ![Dashboard Preview](assets/dashboard-preview.png) |
 | **Dashboard Studio** — presets, widget snippets, profile editor, and import/export | **Dashboard Preview** — generated dashboard validation and live widget preview |
