@@ -18,6 +18,7 @@ export class RatingInput extends MarkdownRenderChild {
 	private currentValue: number;
 	private starsContainer: HTMLElement | null = null;
 	private starEls: HTMLElement[] = [];
+	private readonly usesCircleIcons: boolean;
 
 	constructor(
 		containerEl: HTMLElement,
@@ -32,6 +33,7 @@ export class RatingInput extends MarkdownRenderChild {
 		this.fmHelper = fmHelper;
 		this.obsidianApp = app;
 		this.currentValue = 0;
+		this.usesCircleIcons = config.icon === "●" && config.emptyIcon === "○";
 	}
 
 	onload(): void {
@@ -79,14 +81,15 @@ export class RatingInput extends MarkdownRenderChild {
 		this.starEls = [];
 
 		for (let i = 1; i <= this.config.max; i++) {
+			const filled = i <= this.currentValue;
 			const star = createElement("span", {
-				cls: `umos-rating-star ${i <= this.currentValue ? "umos-rating-star-filled" : ""}`,
-				text: i <= this.currentValue ? this.config.icon : this.config.emptyIcon,
+				cls: `umos-rating-star ${this.usesCircleIcons ? "umos-rating-star-circle" : ""} ${filled ? "umos-rating-star-filled" : ""}`,
+				text: this.usesCircleIcons ? "" : filled ? this.config.icon : this.config.emptyIcon,
 				parent: this.starsContainer,
 				attr: {
 					role: "radio",
 					"aria-checked": String(i === this.currentValue),
-					"aria-label": `${i} из ${this.config.max}`,
+					"aria-label": `${i} of ${this.config.max}`,
 					tabindex: "0",
 				},
 			});
@@ -144,8 +147,7 @@ export class RatingInput extends MarkdownRenderChild {
 	private highlightStars(upTo: number): void {
 		this.starEls.forEach((el, idx) => {
 			const filled = idx < upTo;
-			el.textContent = filled ? this.config.icon : this.config.emptyIcon;
-			el.classList.toggle("umos-rating-star-filled", filled);
+			this.setStarVisual(el, filled);
 			el.classList.toggle("umos-rating-star-hover", filled);
 		});
 	}
@@ -153,8 +155,7 @@ export class RatingInput extends MarkdownRenderChild {
 	private updateVisual(): void {
 		this.starEls.forEach((el, idx) => {
 			const filled = idx < this.currentValue;
-			el.textContent = filled ? this.config.icon : this.config.emptyIcon;
-			el.classList.toggle("umos-rating-star-filled", filled);
+			this.setStarVisual(el, filled);
 			el.classList.remove("umos-rating-star-hover");
 			el.setAttribute("aria-checked", String(idx + 1 === this.currentValue));
 		});
@@ -163,5 +164,14 @@ export class RatingInput extends MarkdownRenderChild {
 		if (valueEl) {
 			valueEl.textContent = `${this.currentValue}/${this.config.max}`;
 		}
+	}
+
+	private setStarVisual(el: HTMLElement, filled: boolean): void {
+		el.classList.toggle("umos-rating-star-filled", filled);
+		if (this.usesCircleIcons) {
+			el.textContent = "";
+			return;
+		}
+		el.textContent = filled ? this.config.icon : this.config.emptyIcon;
 	}
 }

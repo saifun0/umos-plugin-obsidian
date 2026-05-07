@@ -30,9 +30,9 @@ export function renderFooter(parent: HTMLElement, ctx: HomeViewContext): void {
 	const footerGrid = createElement("div", { cls: "umos-home-footer-grid", parent: footer });
 
 	const footerItems = [
-		{ icon: "📝", value: String(totalNotes), label: "заметок" },
-		{ icon: "✅", value: String(totalTasks), label: "задач" },
-		{ icon: "🚀", value: String(totalProjects), label: "проектов" },
+		{ icon: "📝", value: String(totalNotes), label: "notes" },
+		{ icon: "✅", value: String(totalTasks), label: "tasks" },
+		{ icon: "🚀", value: String(totalProjects), label: "projects" },
 	];
 
 	for (const fi of footerItems) {

@@ -1,7 +1,7 @@
 import { createSvgElement } from "../utils/dom";
 
 /**
- * SVG Sparkline — мини-график линией с градиентной заливкой.
+ * SVG Sparkline — min-    .
  */
 export function renderSparkline(
 	parent: HTMLElement,
@@ -44,7 +44,7 @@ export function renderSparkline(
 
 	const polylinePoints = points.join(" ");
 
-	// Градиент
+	// Gradient
 	const defs = createSvgElement("defs", {}, svg);
 	const gradientId = `umos-sparkline-grad-${Math.random().toString(36).slice(2, 8)}`;
 	const gradient = createSvgElement("linearGradient", {
@@ -67,7 +67,7 @@ export function renderSparkline(
 		"stop-opacity": "0",
 	}, gradient);
 
-	// Заливка под линией
+	//
 	const firstPoint = points[0];
 	const lastPoint = points[points.length - 1];
 	const lastX = padding + (data.length - 1) * stepX;
@@ -79,7 +79,7 @@ export function renderSparkline(
 		fill: `url(#${gradientId})`,
 	}, svg);
 
-	// Линия
+	//
 	createSvgElement("polyline", {
 		points: polylinePoints,
 		fill: "none",
@@ -89,7 +89,7 @@ export function renderSparkline(
 		"stroke-linejoin": "round",
 	}, svg);
 
-	// Последняя точка
+	//
 	if (data.length > 0) {
 		const lastDataPoint = points[points.length - 1].split(",");
 		createSvgElement("circle", {
@@ -102,7 +102,7 @@ export function renderSparkline(
 }
 
 /**
- * SVG Ring Chart — кольцевая диаграмма процентного заполнения.
+ * SVG Ring Chart —    .
  */
 export function renderRingChart(
 	parent: HTMLElement,
@@ -136,7 +136,7 @@ export function renderRingChart(
 		class: "umos-ring-chart",
 	}, container);
 
-	// Фоновое кольцо
+	//
 	createSvgElement("circle", {
 		cx: String(center),
 		cy: String(center),
@@ -146,7 +146,7 @@ export function renderRingChart(
 		"stroke-width": String(strokeWidth),
 	}, svg);
 
-	// Заполненное кольцо
+	//
 	createSvgElement("circle", {
 		cx: String(center),
 		cy: String(center),
@@ -161,7 +161,7 @@ export function renderRingChart(
 		class: "umos-ring-chart-fill",
 	}, svg);
 
-	// Текст в центре
+	//
 	if (showPercent) {
 		createSvgElement("text", {
 			x: String(center),
@@ -175,7 +175,7 @@ export function renderRingChart(
 		}, svg).textContent = `${Math.round(percent)}%`;
 	}
 
-	// Подпись
+	//
 	if (options?.label) {
 		const labelEl = document.createElement("div");
 		labelEl.className = "umos-ring-chart-label";
@@ -185,7 +185,7 @@ export function renderRingChart(
 }
 
 /**
- * SVG Bar Chart — сравнение значений столбцами.
+ * SVG Bar Chart — wed  .
  */
 export function renderBarChart(
 	parent: HTMLElement,
@@ -224,7 +224,7 @@ export function renderBarChart(
 		const y = chartHeight - barHeight;
 		const color = item.color || "var(--umos-accent)";
 
-		// Столбец
+		//
 		createSvgElement("rect", {
 			x: String(x),
 			y: String(y),
@@ -236,7 +236,7 @@ export function renderBarChart(
 			class: "umos-bar-chart-bar",
 		}, svg);
 
-		// Значение над столбцом
+		//
 		createSvgElement("text", {
 			x: String(x + barWidth / 2),
 			y: String(y - 4),
@@ -246,7 +246,7 @@ export function renderBarChart(
 			fill: "var(--text-muted)",
 		}, svg).textContent = String(item.value);
 
-		// Подпись
+		//
 		createSvgElement("text", {
 			x: String(x + barWidth / 2),
 			y: String(height - 4),
@@ -258,7 +258,7 @@ export function renderBarChart(
 }
 
 /**
- * Определяет тренд: ↑ / ↓ / →
+ *  : ↑ / ↓ / →
  */
 export function getTrend(data: number[]): { direction: "up" | "down" | "stable"; delta: number } {
 	if (data.length < 2) return { direction: "stable", delta: 0 };
@@ -279,7 +279,7 @@ export function getTrend(data: number[]): { direction: "up" | "down" | "stable";
 }
 
 /**
- * Возвращает иконку тренда.
+ *   .
  */
 export function getTrendIcon(direction: "up" | "down" | "stable"): string {
 	switch (direction) {
@@ -290,7 +290,7 @@ export function getTrendIcon(direction: "up" | "down" | "stable"): string {
 }
 
 /**
- * Возвращает CSS-класс тренда.
+ *  CSS- .
  */
 export function getTrendClass(direction: "up" | "down" | "stable"): string {
 	switch (direction) {

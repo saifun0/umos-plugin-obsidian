@@ -10,8 +10,8 @@ export interface WordsOfDayConfig {
 }
 
 const MONTH_SHORT_RU = [
-	"янв", "фев", "мар", "апр", "май", "июн",
-	"июл", "авг", "сен", "окт", "ноя", "дек",
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
 export class WordsOfDayWidget extends BaseWidget {
@@ -57,20 +57,20 @@ export class WordsOfDayWidget extends BaseWidget {
 
 		createElement("div", {
 			cls: "umos-wod-title",
-			text: "📝 Слова дня",
+			text: "📝 Words of the Day",
 			parent: header,
 		});
 
 		createElement("div", {
 			cls: "umos-wod-subtitle",
-			text: `${data.length} за последние ${this.config.period} дней`,
+			text: `${data.length} over the last ${this.config.period} days`,
 			parent: header,
 		});
 
 		if (data.length === 0) {
 			createElement("div", {
 				cls: "umos-wod-empty",
-				text: "Нет записей за этот период",
+				text: "No entries for this period",
 				parent: wrapper,
 			});
 			return;

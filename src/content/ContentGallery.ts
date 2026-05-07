@@ -8,7 +8,7 @@ export interface ContentGalleryConfig {
 	style: "grid" | "list";
 }
 
-// ── Статусы ────────────────────────────────────
+// ── Status ────────────────────────────────────
 
 interface StatusMeta { label: string; cls: string; icon: string }
 
@@ -35,16 +35,16 @@ const STATUS_NORMALIZE: Record<string, string> = {
 };
 
 const STATUS_DISPLAY: Record<string, StatusMeta> = {
-	"plan":     { label: "В планах",   cls: "umos-cg-s-plan",   icon: "📋" },
-	"watching": { label: "В процессе", cls: "umos-cg-s-active", icon: "▶️" },
-	"done":     { label: "Завершено",  cls: "umos-cg-s-done",   icon: "✅" },
-	"drop":     { label: "Брошено",    cls: "umos-cg-s-drop",   icon: "⛔" },
-	"on-hold":  { label: "На паузе",   cls: "umos-cg-s-hold",   icon: "⏸️" },
+	"plan":     { label: "Planned",   cls: "umos-cg-s-plan",   icon: "📋" },
+	"watching": { label: "In Progress", cls: "umos-cg-s-active", icon: "▶️" },
+	"done":     { label: "Done",  cls: "umos-cg-s-done",   icon: "✅" },
+	"drop":     { label: "Dropped",    cls: "umos-cg-s-drop",   icon: "⛔" },
+	"on-hold":  { label: "On Hold",   cls: "umos-cg-s-hold",   icon: "⏸️" },
 };
 
 const ALL_STATUSES = Object.keys(STATUS_DISPLAY);
 
-// ── Карточка контента ──────────────────────────
+// ── Card  ──────────────────────────
 
 interface ContentCard {
 	title: string;
@@ -63,7 +63,7 @@ interface ContentCard {
 	mtime: number;
 }
 
-// ── Шаблоны ────────────────────────────────────
+// ──  ────────────────────────────────────
 
 function contentTemplate(typeDef: ContentTypeDefinition, title: string): string {
 	const today = new Date().toISOString().slice(0, 10);
@@ -94,18 +94,18 @@ function contentTemplate(typeDef: ContentTypeDefinition, title: string): string 
 		"",
 	);
 
-	// ── Тело заметки с umos-input виджетами ──
+	// ──    umos-input  ──
 	lines.push(`# ${typeDef.icon} ${title}`, "");
-	lines.push("## Информация", "");
+	lines.push("## Information", "");
 
 	// Status select
 	lines.push("```umos-input");
 	lines.push("type: select");
 	lines.push("property: status");
-	lines.push("label: Статус");
+	lines.push("label: Status");
 	lines.push("style: pills");
 	lines.push('options: ["📋 plan", "▶️ watching", "✅ done", "⛔ drop", "⏸️ on-hold"]');
-	lines.push('labels: ["В планах", "В процессе", "Завершено", "Брошено", "На паузе"]');
+	lines.push('labels: ["Planned", "In Progress", "Done", "Dropped", "On Hold"]');
 	lines.push('colors: ["#95a5a6", "#7c3aed", "#27ae60", "#e74c3c", "#f39c12"]');
 	lines.push("```");
 	lines.push("");
@@ -116,7 +116,7 @@ function contentTemplate(typeDef: ContentTypeDefinition, title: string): string 
 		lines.push("type: progress");
 		lines.push(`property_current: ${typeDef.epField}`);
 		lines.push(`property_total: ${typeDef.totalField}`);
-		lines.push(`label: Прогресс (${typeDef.unit || ""})`);
+		lines.push(`label: Progress (${typeDef.unit || ""})`);
 		lines.push(`color: ${typeDef.color}`);
 		lines.push("editable: true");
 		lines.push("```");
@@ -137,7 +137,7 @@ function contentTemplate(typeDef: ContentTypeDefinition, title: string): string 
 	lines.push("```umos-input");
 	lines.push("type: slider");
 	lines.push("property: rating");
-	lines.push("label: Рейтинг");
+	lines.push("label: Rating");
 	lines.push("min: 0");
 	lines.push("max: 10");
 	lines.push("step: 1");
@@ -148,7 +148,7 @@ function contentTemplate(typeDef: ContentTypeDefinition, title: string): string 
 	lines.push("```umos-input");
 	lines.push("type: text");
 	lines.push("property: genres");
-	lines.push("label: Жанры");
+	lines.push("label: Genres");
 	lines.push("placeholder: action, fantasy, drama...");
 	lines.push("```");
 	lines.push("");
@@ -157,14 +157,14 @@ function contentTemplate(typeDef: ContentTypeDefinition, title: string): string 
 	lines.push("```umos-input");
 	lines.push("type: date");
 	lines.push("property: start_date");
-	lines.push("label: Дата начала");
+	lines.push("label: Start Date");
 	lines.push("```");
 	lines.push("");
 
 	lines.push("```umos-input");
 	lines.push("type: date");
 	lines.push("property: end_date");
-	lines.push("label: Дата окончания");
+	lines.push("label: Finish Date");
 	lines.push("```");
 	lines.push("");
 
@@ -172,25 +172,25 @@ function contentTemplate(typeDef: ContentTypeDefinition, title: string): string 
 	lines.push("```umos-input");
 	lines.push("type: text");
 	lines.push("property: cover_url");
-	lines.push("label: Обложка (URL)");
+	lines.push("label: Cover (URL)");
 	lines.push("placeholder: https://...");
 	lines.push("```");
 	lines.push("");
 
 	lines.push("---", "");
-	lines.push("## Рецензия", "");
+	lines.push("## Review", "");
 
 	lines.push("```umos-input");
 	lines.push("type: text");
 	lines.push("property: review");
-	lines.push("label: Рецензия");
-	lines.push("placeholder: Напишите свой отзыв...");
+	lines.push("label: Review");
+	lines.push("placeholder: Write your review...");
 	lines.push("multiline: true");
 	lines.push("```");
 	lines.push("");
 
 	lines.push("---", "");
-	lines.push("## Связанное", "");
+	lines.push("## Related", "");
 
 	return lines.join("\n");
 }
@@ -205,63 +205,158 @@ const STATUS_COLORS: Record<string, string> = {
 	"on-hold":  "#f39c12",
 };
 
-function renderStatusDonut(parent: HTMLElement, statusCounts: Record<string, number>, total: number, size: number): void {
-	const container = createElement("div", { cls: "umos-cg-donut-container", parent });
+interface ContentDonutSegment {
+	key: string;
+	label: string;
+	count: number;
+	color: string;
+	icon?: string;
+}
+
+function renderNestedStatsDonut(
+	parent: HTMLElement,
+	statuses: ContentDonutSegment[],
+	types: ContentDonutSegment[],
+	total: number,
+): void {
+	const section = createElement("div", { cls: "umos-cg-donut-section", parent });
+
+	const wrap = createElement("div", { cls: "umos-cg-nested-donut-wrap", parent: section });
+	const tooltip = createElement("div", { cls: "umos-cg-nested-donut-tooltip", parent: wrap });
+	tooltip.style.display = "none";
 
 	const svgNS = "http://www.w3.org/2000/svg";
 	const svg = document.createElementNS(svgNS, "svg");
-	svg.setAttribute("width", String(size));
-	svg.setAttribute("height", String(size));
-	svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
-	svg.classList.add("umos-cg-donut-svg");
-	container.appendChild(svg);
+	svg.setAttribute("viewBox", "0 0 200 200");
+	svg.classList.add("umos-cg-nested-donut-svg");
+	wrap.appendChild(svg);
 
-	const cx = size / 2;
-	const cy = size / 2;
-	const strokeWidth = 10;
-	const r = (size - strokeWidth) / 2 - 2;
-	const circumference = 2 * Math.PI * r;
+	const cx = 100;
+	const cy = 100;
+	const GAP = 0.025;
 
-	const bgCircle = document.createElementNS(svgNS, "circle");
-	bgCircle.setAttribute("cx", String(cx));
-	bgCircle.setAttribute("cy", String(cy));
-	bgCircle.setAttribute("r", String(r));
-	bgCircle.setAttribute("fill", "none");
-	bgCircle.setAttribute("stroke", "var(--background-modifier-border)");
-	bgCircle.setAttribute("stroke-width", String(strokeWidth));
-	svg.appendChild(bgCircle);
+	const polar = (angle: number, radius: number) => ({
+		x: cx + radius * Math.cos(angle),
+		y: cy + radius * Math.sin(angle),
+	});
 
-	if (total > 0) {
-		const GAP_DEG = 2;
-		let cumulativeDegrees = -90;
-		for (const status of ALL_STATUSES) {
-			const cnt = statusCounts[status] || 0;
-			if (cnt === 0) continue;
-			const pctDeg = (cnt / total) * 360;
-			const segDeg = Math.max(pctDeg - GAP_DEG, 0);
-			const segLen = (segDeg / 360) * circumference;
+	const segmentPath = (a1: number, a2: number, rOuter: number, rInner: number): string => {
+		const large = a2 - a1 > Math.PI ? 1 : 0;
+		const p1 = polar(a1, rOuter);
+		const p2 = polar(a2, rOuter);
+		const p3 = polar(a2, rInner);
+		const p4 = polar(a1, rInner);
 
-			const circle = document.createElementNS(svgNS, "circle");
-			circle.setAttribute("cx", String(cx));
-			circle.setAttribute("cy", String(cy));
-			circle.setAttribute("r", String(r));
-			circle.setAttribute("fill", "none");
-			circle.setAttribute("stroke", STATUS_COLORS[status] || "#999");
-			circle.setAttribute("stroke-width", String(strokeWidth));
-			circle.setAttribute("stroke-linecap", "butt");
-			circle.setAttribute("stroke-dasharray", `${segLen} ${circumference - segLen}`);
-			circle.setAttribute("transform", `rotate(${cumulativeDegrees} ${cx} ${cy})`);
-			svg.appendChild(circle);
+		return [
+			`M ${p1.x} ${p1.y}`,
+			`A ${rOuter} ${rOuter} 0 ${large} 1 ${p2.x} ${p2.y}`,
+			`L ${p3.x} ${p3.y}`,
+			`A ${rInner} ${rInner} 0 ${large} 0 ${p4.x} ${p4.y}`,
+			"Z",
+		].join(" ");
+	};
 
-			cumulativeDegrees += pctDeg;
+	const renderBgRing = (rOuter: number, rInner: number): void => {
+		const path = document.createElementNS(svgNS, "path");
+		path.setAttribute("d", segmentPath(-Math.PI / 2, Math.PI * 1.5 - 0.001, rOuter, rInner));
+		path.setAttribute("class", "umos-cg-nested-ring-bg");
+		svg.appendChild(path);
+	};
+
+	const renderRing = (
+		segments: ContentDonutSegment[],
+		rOuter: number,
+		rInner: number,
+		ringClass: string,
+		labelThreshold: number,
+	): void => {
+		if (total <= 0) return;
+
+		let startAngle = -Math.PI / 2;
+		for (const segment of segments) {
+			const slice = (segment.count / total) * Math.PI * 2;
+			const endAngle = startAngle + slice - GAP;
+			const midAngle = startAngle + GAP / 2 + Math.max(slice - GAP, 0) / 2;
+			const pct = Math.round((segment.count / total) * 100);
+
+			const g = document.createElementNS(svgNS, "g");
+			g.classList.add("umos-cg-nested-segment", ringClass);
+			svg.appendChild(g);
+
+			const path = document.createElementNS(svgNS, "path");
+			path.setAttribute("d", segmentPath(startAngle + GAP / 2, Math.max(endAngle, startAngle + GAP / 2), rOuter, rInner));
+			path.setAttribute("fill", segment.color);
+			g.appendChild(path);
+
+			const title = document.createElementNS(svgNS, "title");
+			title.textContent = `${segment.icon ? `${segment.icon} ` : ""}${segment.label}: ${segment.count} (${pct}%)`;
+			g.appendChild(title);
+
+			if (slice > labelThreshold) {
+				const labelRadius = (rOuter + rInner) / 2;
+				const point = polar(midAngle, labelRadius);
+				const text = document.createElementNS(svgNS, "text");
+				text.setAttribute("x", String(point.x));
+				text.setAttribute("y", String(point.y));
+				text.setAttribute("text-anchor", "middle");
+				text.setAttribute("dominant-baseline", "middle");
+				text.setAttribute("class", "umos-cg-nested-donut-label");
+				text.setAttribute("pointer-events", "none");
+				text.textContent = `${pct}%`;
+				g.appendChild(text);
+			}
+
+			g.addEventListener("mouseenter", () => {
+				tooltip.textContent = `${segment.icon ? `${segment.icon} ` : ""}${segment.label} · ${segment.count} · ${pct}%`;
+				tooltip.style.display = "block";
+				g.classList.add("umos-cg-nested-segment--active");
+			});
+			g.addEventListener("mouseleave", () => {
+				tooltip.style.display = "none";
+				g.classList.remove("umos-cg-nested-segment--active");
+			});
+			g.addEventListener("touchstart", (e) => {
+				e.preventDefault();
+				const isActive = g.classList.contains("umos-cg-nested-segment--active");
+				svg.querySelectorAll(".umos-cg-nested-segment--active").forEach(el => el.classList.remove("umos-cg-nested-segment--active"));
+				if (isActive) {
+					tooltip.style.display = "none";
+				} else {
+					tooltip.textContent = `${segment.icon ? `${segment.icon} ` : ""}${segment.label} · ${segment.count} · ${pct}%`;
+					tooltip.style.display = "block";
+					g.classList.add("umos-cg-nested-segment--active");
+				}
+			}, { passive: false });
+
+			startAngle += slice;
 		}
-	}
+	};
 
-	createElement("div", { cls: "umos-cg-donut-val", text: String(total), parent: container });
-	createElement("div", { cls: "umos-cg-donut-lbl", text: "всего", parent: container });
+	renderBgRing(84, 61);
+	renderBgRing(57, 36);
+	renderRing(types, 84, 61, "umos-cg-nested-segment--type", 0.34);
+	renderRing(statuses, 57, 36, "umos-cg-nested-segment--status", 0.42);
+
+	const centerValue = document.createElementNS(svgNS, "text");
+	centerValue.setAttribute("x", String(cx));
+	centerValue.setAttribute("y", String(cy - 6));
+	centerValue.setAttribute("text-anchor", "middle");
+	centerValue.setAttribute("dominant-baseline", "middle");
+	centerValue.setAttribute("class", "umos-cg-nested-center-value");
+	centerValue.textContent = String(total);
+	svg.appendChild(centerValue);
+
+	const centerLabel = document.createElementNS(svgNS, "text");
+	centerLabel.setAttribute("x", String(cx));
+	centerLabel.setAttribute("y", String(cy + 12));
+	centerLabel.setAttribute("text-anchor", "middle");
+	centerLabel.setAttribute("dominant-baseline", "middle");
+	centerLabel.setAttribute("class", "umos-cg-nested-center-label");
+	centerLabel.textContent = "TOTAL";
+	svg.appendChild(centerLabel);
 }
 
-// ── Виджет ─────────────────────────────────────
+// ──  ─────────────────────────────────────
 
 export class ContentGallery extends BaseWidget {
 	private config: ContentGalleryConfig;
@@ -478,14 +573,13 @@ export class ContentGallery extends BaseWidget {
 			wrapper.style.setProperty(`--cg-${t.key}`, t.color || "#7c3aed");
 		}
 
-		// Stats block
-		this.renderStats(wrapper);
+		// Stats + filters row
+		const controlsRow = createElement("div", { cls: "umos-cg-controls-row", parent: wrapper });
+		this.renderStats(controlsRow);
+		this.renderFilters(controlsRow);
 
 		// Divider
 		createElement("div", { cls: "umos-cg-divider", parent: wrapper });
-
-		// Filters bar
-		this.renderFilters(wrapper);
 
 		// Gallery container
 		this.galleryEl = createElement("div", {
@@ -497,7 +591,7 @@ export class ContentGallery extends BaseWidget {
 		this.emptyEl = createElement("div", { cls: "umos-cg-empty", parent: wrapper });
 		this.emptyEl.style.display = "none";
 		createElement("div", { cls: "umos-cg-empty-icon", text: "🔍", parent: this.emptyEl });
-		createElement("div", { cls: "umos-cg-empty-text", text: "Ничего не найдено", parent: this.emptyEl });
+		createElement("div", { cls: "umos-cg-empty-text", text: "Nothing found", parent: this.emptyEl });
 
 		this.filterAndRender();
 	}
@@ -506,70 +600,30 @@ export class ContentGallery extends BaseWidget {
 
 	private renderStats(parent: HTMLElement): void {
 		const all = this.allCards;
+		const total = all.length;
 		const countByStatus = (s: string) => all.filter(c => c.nStatus === s).length;
-		const watching = countByStatus("watching");
-		const completed = countByStatus("done");
-		const planned = countByStatus("plan");
-		const onHold = countByStatus("on-hold");
-		const dropped = countByStatus("drop");
+		const statusStats: ContentDonutSegment[] = ALL_STATUSES
+			.map(status => ({
+				key: status,
+				label: STATUS_DISPLAY[status]?.label || status,
+				icon: STATUS_DISPLAY[status]?.icon,
+				color: STATUS_COLORS[status] || "#999",
+				count: countByStatus(status),
+			}))
+			.filter(item => item.count > 0);
 
-		const rated = all.filter(c => c.rating > 0);
-		const avgRating = rated.length > 0
-			? (rated.reduce((s, c) => s + c.rating, 0) / rated.length).toFixed(1)
-			: "—";
+		const typeStats: ContentDonutSegment[] = this.getTypes()
+			.map(type => ({
+				key: type.key,
+				label: type.label,
+				icon: type.icon,
+				color: type.color || "#7c3aed",
+				count: all.filter(c => c.typeKey === type.key).length,
+			}))
+			.filter(item => item.count > 0);
 
 		const block = createElement("div", { cls: "umos-cg-stats", parent });
-
-		// ── Top: Ring charts row ──
-		const ringsRow = createElement("div", { cls: "umos-cg-rings-row", parent: block });
-
-		renderStatusDonut(ringsRow, { plan: planned, watching, done: completed, drop: dropped, "on-hold": onHold }, all.length, 90);
-
-		// Summary numbers beside rings
-		const summaryCol = createElement("div", { cls: "umos-cg-summary-col", parent: ringsRow });
-		const summaryItems = [
-			{ value: String(all.length), label: "Всего", icon: "📦" },
-			{ value: `⭐ ${avgRating}`, label: "Средняя оценка", icon: "" },
-			{ value: String(planned), label: "В планах", icon: "📋" },
-			{ value: String(onHold), label: "На паузе", icon: "⏸️" },
-			{ value: String(dropped), label: "Брошено", icon: "⛔" },
-		];
-		for (const s of summaryItems) {
-			const row = createElement("div", { cls: "umos-cg-summary-row", parent: summaryCol });
-			if (s.icon) createElement("span", { cls: "umos-cg-summary-icon", text: s.icon, parent: row });
-			createElement("span", { cls: "umos-cg-summary-val", text: s.value, parent: row });
-			createElement("span", { cls: "umos-cg-summary-lbl", text: s.label, parent: row });
-		}
-
-		// ── Bottom: Type distribution bar ──
-		if (all.length > 0) {
-			const barSection = createElement("div", { cls: "umos-cg-dist-section", parent: block });
-			const barTrack = createElement("div", { cls: "umos-cg-dist-bar", parent: barSection });
-			const legend = createElement("div", { cls: "umos-cg-dist-legend", parent: barSection });
-
-			for (const t of this.getTypes()) {
-				const cnt = all.filter(c => c.typeKey === t.key).length;
-				if (cnt === 0) continue;
-				const pct = (cnt / all.length) * 100;
-
-				const seg = createElement("div", { cls: "umos-cg-dist-seg", parent: barTrack });
-				seg.style.width = `${pct}%`;
-				seg.style.background = t.color || "#7c3aed";
-				seg.title = `${t.icon} ${t.label}: ${cnt}`;
-
-				const legendItem = createElement("div", { cls: "umos-cg-dist-legend-item", parent: legend });
-				const dot = createElement("span", { cls: "umos-cg-dist-dot", parent: legendItem });
-				dot.style.background = t.color || "#7c3aed";
-				createElement("span", { cls: "umos-cg-dist-legend-label", text: `${t.icon} ${t.label}`, parent: legendItem });
-
-				const inP = all.filter(c => c.typeKey === t.key && c.nStatus === "watching").length;
-				const done = all.filter(c => c.typeKey === t.key && c.nStatus === "done").length;
-				let detail = String(cnt);
-				if (inP > 0) detail += ` (▶${inP})`;
-				if (done > 0) detail += ` (✓${done})`;
-				createElement("span", { cls: "umos-cg-dist-legend-count", text: detail, parent: legendItem });
-			}
-		}
+		renderNestedStatsDonut(block, statusStats, typeStats, total);
 	}
 
 	// ── Filters ─────────────────────────────────
@@ -585,7 +639,7 @@ export class ContentGallery extends BaseWidget {
 		setIcon(searchIcon, "search");
 		const searchInput = createElement("input", { cls: "umos-cg-search-input", parent: searchWrap }) as HTMLInputElement;
 		searchInput.type = "text";
-		searchInput.placeholder = "Поиск по названию...";
+		searchInput.placeholder = "Search by title...";
 		searchInput.value = this.searchQuery;
 		searchInput.addEventListener("input", () => {
 			this.searchQuery = searchInput.value;
@@ -594,19 +648,19 @@ export class ContentGallery extends BaseWidget {
 
 		const addBtn = createElement("button", { cls: "umos-cg-add-btn", parent: topRow });
 		addBtn.appendText("＋");
-		createElement("span", { cls: "umos-cg-add-btn-text", text: " Добавить", parent: addBtn });
+		createElement("span", { cls: "umos-cg-add-btn-text", text: " Add", parent: addBtn });
 		addBtn.addEventListener("click", () => this.openAddModal());
 
 		const wideBtn = createElement("button", {
 			cls: `clickable-icon umos-cg-wide-btn${this.wideView ? " is-active" : ""}`,
 			parent: topRow,
 		});
-		wideBtn.title = this.wideView ? "Обычная ширина" : "Развернуть на всю ширину";
+		wideBtn.title = this.wideView ? "Normal width" : "Expand to full width";
 		setIcon(wideBtn, this.wideView ? "minimize-2" : "maximize-2");
 		wideBtn.addEventListener("click", () => {
 			this.wideView = !this.wideView;
 			wideBtn.classList.toggle("is-active", this.wideView);
-			wideBtn.title = this.wideView ? "Обычная ширина" : "Развернуть на всю ширину";
+			wideBtn.title = this.wideView ? "Normal width" : "Expand to full width";
 			setIcon(wideBtn, this.wideView ? "minimize-2" : "maximize-2");
 			this.applyWideMode(this.wideView);
 			if (this.galleryEl) {
@@ -617,30 +671,30 @@ export class ContentGallery extends BaseWidget {
 		// ── Row 2: Selects ───────────────────────────
 		const selectRow = createElement("div", { cls: "umos-cg-select-row", parent: bar });
 
-		// Тип
-		this.renderSelect(selectRow, "Тип", [
-			{ value: "all", label: "Все типы" },
+		// Type
+		this.renderSelect(selectRow, "Type", [
+			{ value: "all", label: "All types" },
 			...this.getTypes().map(t => ({ value: t.key, label: `${t.icon} ${t.label}` })),
 		], () => this.filterType, (v) => { this.filterType = v; this.filterAndRender(); });
 
-		// Статус
-		this.renderSelect(selectRow, "Статус", [
-			{ value: "all", label: "Все статусы" },
+		// Status
+		this.renderSelect(selectRow, "Status", [
+			{ value: "all", label: "All statuses" },
 			...ALL_STATUSES.map(k => ({ value: k, label: `${STATUS_DISPLAY[k].icon} ${STATUS_DISPLAY[k].label}` })),
 		], () => this.filterStatus, (v) => { this.filterStatus = v; this.filterAndRender(); });
 
-		// Сортировка
-		this.renderSelect(selectRow, "Сортировка", [
-			{ value: "updated", label: "🕐 По дате" },
-			{ value: "name",    label: "🔤 По имени" },
-			{ value: "rating",  label: "⭐ По оценке" },
+		// Sort
+		this.renderSelect(selectRow, "Sort", [
+			{ value: "updated", label: "🕐 By date" },
+			{ value: "name",    label: "🔤 By name" },
+			{ value: "rating",  label: "⭐ By rating" },
 		], () => this.sortMode, (v) => { this.sortMode = v; this.filterAndRender(); });
 
-		// Группировка
-		this.renderSelect(selectRow, "Группировка", [
-			{ value: "none",   label: "Без группировки" },
-			{ value: "type",   label: "По типу" },
-			{ value: "status", label: "По статусу" },
+		// Grouping
+		this.renderSelect(selectRow, "Grouping", [
+			{ value: "none",   label: "No grouping" },
+			{ value: "type",   label: "By type" },
+			{ value: "status", label: "By status" },
 		], () => this.groupMode, (v) => { this.groupMode = v as "none" | "type" | "status"; this.filterAndRender(); });
 
 		// Count
@@ -688,7 +742,7 @@ export class ContentGallery extends BaseWidget {
 		filtered = this.sortCards(filtered);
 
 		if (this.filterCountEl) {
-			this.filterCountEl.textContent = `${filtered.length} из ${this.allCards.length}`;
+			this.filterCountEl.textContent = `${filtered.length} of ${this.allCards.length}`;
 		}
 
 		if (filtered.length === 0) {
@@ -752,7 +806,7 @@ export class ContentGallery extends BaseWidget {
 	private sortCards(cards: ContentCard[]): ContentCard[] {
 		return cards.sort((a, b) => {
 			if (this.sortMode === "updated") return b.mtime - a.mtime;
-			if (this.sortMode === "name") return a.title.localeCompare(b.title, "ru");
+			if (this.sortMode === "name") return a.title.localeCompare(b.title, "en");
 			if (this.sortMode === "rating") return b.rating - a.rating;
 			return 0;
 		});
@@ -790,7 +844,7 @@ export class ContentGallery extends BaseWidget {
 		const actions = createElement("div", { cls: "umos-cg-card-actions", parent: bg });
 
 		const openBtn = createElement("button", { cls: "clickable-icon umos-cg-card-action-btn", parent: actions });
-		openBtn.title = "Открыть заметку";
+		openBtn.title = "Open note";
 		setIcon(openBtn, "external-link");
 		openBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
@@ -802,7 +856,7 @@ export class ContentGallery extends BaseWidget {
 			cls: "clickable-icon umos-cg-card-action-btn",
 			parent: actions,
 		});
-		statusActionBtn.title = c.nStatus === "done" ? "Сбросить на «В планах»" : c.nStatus === "watching" ? "Завершить" : "Начать";
+		statusActionBtn.title = c.nStatus === "done" ? "Reset to Planned" : c.nStatus === "watching" ? "Complete" : "Start";
 		setIcon(statusActionBtn, c.nStatus === "done" ? "rotate-ccw" : c.nStatus === "watching" ? "check-circle" : "play");
 		statusActionBtn.addEventListener("click", async (e) => {
 			e.stopPropagation();
@@ -919,7 +973,7 @@ export class ContentGallery extends BaseWidget {
 	private openAddModal(): void {
 		const types = this.getTypes();
 		if (types.length === 0) {
-			new Notice("Нет типов контента. Добавьте их в настройках плагина.");
+			new Notice("No content types. Add them in plugin settings.");
 			return;
 		}
 
@@ -927,12 +981,12 @@ export class ContentGallery extends BaseWidget {
 		m.modalEl.addClass("umos-cg-obsidian-modal");
 		const { contentEl } = m;
 
-		contentEl.createEl("h3", { text: "Добавить контент", cls: "umos-cg-modal-title" });
+		contentEl.createEl("h3", { text: "Add Content", cls: "umos-cg-modal-title" });
 		const body = contentEl.createDiv({ cls: "umos-cg-modal-body" });
 
 		// Type selector
 		const typeField = body.createDiv({ cls: "umos-cg-modal-field" });
-		typeField.createEl("label", { cls: "umos-cg-modal-label", text: "Тип контента" });
+		typeField.createEl("label", { cls: "umos-cg-modal-label", text: "Content Type" });
 		const typeGrid = typeField.createDiv({ cls: "umos-cg-modal-types" });
 
 		let selectedType = types[0].key;
@@ -956,18 +1010,18 @@ export class ContentGallery extends BaseWidget {
 
 		// Name input
 		const nameField = body.createDiv({ cls: "umos-cg-modal-field" });
-		nameField.createEl("label", { cls: "umos-cg-modal-label", text: "Название" });
+		nameField.createEl("label", { cls: "umos-cg-modal-label", text: "Title" });
 		const nameInput = nameField.createEl("input", {
 			cls: "umos-cg-modal-input",
-			attr: { type: "text", placeholder: "Введите название..." },
+			attr: { type: "text", placeholder: "Enter a title..." },
 		});
 
 		// Submit
-		const submitBtn = body.createEl("button", { cls: "umos-cg-modal-submit", text: "Создать" });
+		const submitBtn = body.createEl("button", { cls: "umos-cg-modal-submit", text: "Create" });
 
 		const create = async () => {
 			const name = nameInput.value.trim();
-			if (!name) { new Notice("Введите название"); return; }
+			if (!name) { new Notice("Enter a title"); return; }
 			const typeMap = this.getTypeMap();
 			const typeObj = typeMap[selectedType];
 			if (!typeObj) return;
@@ -978,11 +1032,11 @@ export class ContentGallery extends BaseWidget {
 			const safeName = name.replace(/[\\/:*?"<>|]/g, "_");
 			const filePath = `${folderPath}/${safeName}.md`;
 			const existing = this.obsidianApp.vault.getAbstractFileByPath(filePath);
-			if (existing) { new Notice(`Файл уже существует: ${safeName}`); return; }
+			if (existing) { new Notice(`File already exists: ${safeName}`); return; }
 			const fileContent = contentTemplate(typeObj, name);
 			const newFile = await this.obsidianApp.vault.create(filePath, fileContent);
 			m.close();
-			new Notice(`✅ Создано: ${safeName}`);
+			new Notice(`✅ Created: ${safeName}`);
 			const leaf = this.obsidianApp.workspace.getLeaf(false);
 			await leaf.openFile(newFile);
 			this.allCards = this.loadAllCards();

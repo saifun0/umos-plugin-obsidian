@@ -9,34 +9,34 @@ export type EventSubscription = {
 }[keyof UmOSEventMap];
 
 /**
- * BaseWidget — базовый класс для всех виджетов umOS.
- * Берёт на себя lifecycle: render при загрузке, подписку на EventBus события,
- * их автоматическую очистку при выгрузке.
+ * BaseWidget —      umOS.
+ *    lifecycle: render  ,   EventBus ,
+ *  automatic   .
  *
- * Подклассы реализуют:
- *   - render()            — отрисовка содержимого
- *   - subscribeToEvents() — список событий EventBus для авто-подписки
- *   - onWidgetLoad()      — хук для доп. инициализации (интервалы, Obsidian-события)
- *   - onWidgetUnload()    — хук для очистки ресурсов из onWidgetLoad
+ *  :
+ *   - render()            —
+ *   - subscribeToEvents() —   EventBus  tue-
+ *   - onWidgetLoad()      —   .  (, Obsidian-)
+ *   - onWidgetUnload()    —     of onWidgetLoad
  *
- * eventBus не обязателен — виджеты без EventBus просто не объявляют его,
- * и подписок не будет.
+ * eventBus   —   EventBus    ,
+ *    .
  */
 export abstract class BaseWidget extends MarkdownRenderChild {
 	protected eventBus?: EventBus;
 
-	/** Возвращает список событий EventBus, на которые подписывается виджет. */
+	/**    EventBus,    . */
 	protected subscribeToEvents(): EventSubscription[] {
 		return [];
 	}
 
-	/** Вызывается после подписки на события. Используй для интервалов и Obsidian-событий. */
+	/**     .     Obsidian-. */
 	protected onWidgetLoad(): void {}
 
-	/** Вызывается перед очисткой подписок. Используй для clearInterval и т.п. */
+	/**    .   clearInterval  .. */
 	protected onWidgetUnload(): void {}
 
-	/** Отрисовка содержимого виджета. */
+	/**   . */
 	protected abstract render(): void;
 
 	onload(): void {

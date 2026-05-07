@@ -10,7 +10,7 @@ export function renderDeadlinesSection(parent: HTMLElement, ctx: HomeViewContext
 
 	createElement("div", {
 		cls: "umos-home-section-title",
-		text: "🔥 Горящие дедлайны",
+		text: "🔥 Urgent Deadlines",
 		parent: section,
 	});
 
@@ -60,7 +60,7 @@ export function renderDeadlinesSection(parent: HTMLElement, ctx: HomeViewContext
 	if (upcoming.length === 0 && overdue.length === 0) {
 		createElement("div", {
 			cls: "umos-home-empty",
-			text: "Нет горящих дедлайнов 🎉",
+			text: "No urgent deadlines 🎉",
 			parent: section,
 		});
 		return;
@@ -71,11 +71,11 @@ export function renderDeadlinesSection(parent: HTMLElement, ctx: HomeViewContext
 		parent: section,
 	});
 
-	// Просроченные — сначала
+	// wed —
 	if (overdue.length > 0) {
 		createElement("div", {
 			cls: "umos-home-deadlines-group-label",
-			text: "⚠️ Просрочено",
+			text: "⚠️ Overdue",
 			parent: list,
 		});
 		for (const dl of overdue.slice(0, 3)) {
@@ -87,19 +87,19 @@ export function renderDeadlinesSection(parent: HTMLElement, ctx: HomeViewContext
 			createElement("span", { cls: "umos-home-deadline-name", text: dl.name, parent: item });
 			createElement("span", {
 				cls: "umos-home-deadline-days umos-home-deadline-days--overdue",
-				text: `${dl.daysOverdue} дн. назад`,
+				text: `${dl.daysOverdue} d ago`,
 				parent: item,
 			});
 			item.addEventListener("click", () => ctx.app.workspace.openLinkText(dl.path, "", false));
 		}
 	}
 
-	// Предстоящие
+	// Upcoming
 	if (upcoming.length > 0) {
 		if (overdue.length > 0) {
 			createElement("div", {
 				cls: "umos-home-deadlines-group-label",
-				text: "📅 Предстоящие",
+				text: "📅 Upcoming",
 				parent: list,
 			});
 		}
@@ -114,7 +114,7 @@ export function renderDeadlinesSection(parent: HTMLElement, ctx: HomeViewContext
 				parent: item,
 			});
 			createElement("span", { cls: "umos-home-deadline-name", text: dl.name, parent: item });
-			const daysText = dl.daysLeft === 0 ? "Сегодня!" : dl.daysLeft === 1 ? "Завтра" : `${dl.daysLeft} дн.`;
+			const daysText = dl.daysLeft === 0 ? "Today!" : dl.daysLeft === 1 ? "Tomorrow" : `${dl.daysLeft} d`;
 			createElement("span", { cls: "umos-home-deadline-days", text: daysText, parent: item });
 			item.addEventListener("click", () => ctx.app.workspace.openLinkText(dl.path, "", false));
 		}

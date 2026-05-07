@@ -38,9 +38,9 @@ export class InfoboxWidget extends BaseWidget {
 			}
 		}
 
-		// Нулевой float-якорь: занимает 0px в потоке,
-		// но float: right ставит его у правого края контентной колонки.
-		// Инфобокс — абсолютно внутри якоря, left = зазор.
+		//  float-:  0px  ,
+		//  float: right       .
+		// Infobox —   , left = .
 		const anchor = this.containerEl.createDiv({ cls: "umos-infobox-anchor" });
 		const box    = anchor.createDiv({ cls: "umos-infobox" });
 

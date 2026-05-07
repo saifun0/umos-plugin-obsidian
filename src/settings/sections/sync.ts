@@ -5,13 +5,13 @@ export function renderSyncSection(containerEl: HTMLElement, ctx: SettingsContext
 	const sectionEl = createSection(
 		containerEl,
 		"umos-settings-sync",
-		"Синхронизация данных",
-		"Дублирует данные плагина в файл внутри vault для синхронизации между устройствами (например, через Obsidian Sync).",
+		"Data Sync",
+		"Duplicates plugin data into a file inside the vault so it is easier to move between devices."
 	);
 
 	new Setting(sectionEl)
-		.setName("Путь к файлу синхронизации")
-		.setDesc("Путь относительно корня vault. Например: umOS/sync.json. Оставьте пустым, чтобы отключить.")
+		.setName("Sync File Path")
+		.setDesc("Path relative to the vault root, for example: umOS/sync.json. Empty value disables writing.")
 		.addText((text) =>
 			text
 				.setPlaceholder("umOS/sync.json")

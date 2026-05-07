@@ -1,7 +1,9 @@
-import { App } from "obsidian";
+import { App, MarkdownView, moment } from "obsidian";
 import { UmOSData } from "../../settings/Settings";
 import { EventBus } from "../../EventBus";
 import { BaseWidget, EventSubscription } from "../../core/BaseWidget";
+import { Task } from "../tasks/Task";
+import { TaskService } from "../tasks/TaskService";
 import { createElement } from "../../utils/dom";
 import {
 	getCurrentWeekKey,
@@ -24,6 +26,9 @@ export interface ScheduleWidgetConfig {
 	show: "current" | "week" | "both";
 	highlight: boolean;
 	countdown: boolean;
+	tasks?: boolean;
+	taskMode?: "both" | "due" | "scheduled";
+	taskPath?: string;
 }
 
 export class ScheduleWidget extends BaseWidget {
@@ -31,6 +36,7 @@ export class ScheduleWidget extends BaseWidget {
 	protected eventBus: EventBus;
 	private config: ScheduleWidgetConfig;
 	private getData: () => UmOSData;
+	private taskService: TaskService;
 	private selectedWeek: "current" | "week1" | "week2" = "current";
 	private selectedDay: string | null = null;
 
@@ -46,10 +52,14 @@ export class ScheduleWidget extends BaseWidget {
 		this.eventBus = eventBus;
 		this.config = config;
 		this.getData = getData;
+		this.taskService = new TaskService(app);
 	}
 
 	protected subscribeToEvents(): EventSubscription[] {
-		return [{ event: "schedule:changed", handler: () => this.render() }];
+		return [
+			{ event: "schedule:changed", handler: () => this.render() },
+			{ event: "tasks:changed", handler: () => this.render() },
+		];
 	}
 
 	protected onWidgetLoad(): void {
@@ -57,6 +67,10 @@ export class ScheduleWidget extends BaseWidget {
 	}
 
 	protected render(): void {
+		void this.renderAsync();
+	}
+
+	private async renderAsync(): Promise<void> {
 		this.containerEl.empty();
 
 		const data = this.getData();
@@ -67,9 +81,9 @@ export class ScheduleWidget extends BaseWidget {
 
 		const weekKey = getCurrentWeekKey(data.settings.scheduleAnchorDate);
 		const activeWeekKey = this.getActiveWeekKey(weekKey);
-		const weekLabel = activeWeekKey === "week1" ? "Неделя 1" : "Неделя 2";
+		const weekLabel = activeWeekKey === "week1" ? "Week 1" : "Week 2";
 
-		// Заголовок
+		// Title
 		const header = createElement("div", {
 			cls: "umos-schedule-header",
 			parent: wrapper,
@@ -77,7 +91,7 @@ export class ScheduleWidget extends BaseWidget {
 
 		createElement("div", {
 			cls: "umos-schedule-title",
-			text: "📅 Расписание",
+			text: "📅 Schedule",
 			parent: header,
 		});
 
@@ -88,7 +102,7 @@ export class ScheduleWidget extends BaseWidget {
 		});
 		weekLabelEl.setAttribute("role", "button");
 		weekLabelEl.setAttribute("tabindex", "0");
-		weekLabelEl.setAttribute("title", "Переключить неделю");
+		weekLabelEl.setAttribute("title", "Switch week");
 		weekLabelEl.addEventListener("click", () => {
 			this.toggleWeek(activeWeekKey, weekKey);
 		});
@@ -101,6 +115,8 @@ export class ScheduleWidget extends BaseWidget {
 
 		const today = getDayOfWeek();
 		const activeDay = this.getActiveDay(today);
+		const overlayDate = this.getDateForDay(activeWeekKey, weekKey, activeDay);
+		const overlayTasks = this.config.tasks ? await this.getTaskOverlaysForDay(overlayDate) : [];
 
 		// Stat cards
 		this.renderStatCards(wrapper, data, activeWeekKey, today);
@@ -110,7 +126,7 @@ export class ScheduleWidget extends BaseWidget {
 		}
 
 		if (this.config.show === "current" || this.config.show === "both") {
-			this.renderDaySchedule(wrapper, data, activeWeekKey, activeDay);
+			this.renderDaySchedule(wrapper, data, activeWeekKey, activeDay, overlayDate, overlayTasks);
 		}
 	}
 
@@ -127,7 +143,7 @@ export class ScheduleWidget extends BaseWidget {
 		const slotInfo = getCurrentSlotInfo(todaySlots);
 		let nextLabel = "—";
 		if (slotInfo.currentSlot) {
-			nextLabel = `Сейчас: ${slotInfo.currentSlot.subject}`;
+			nextLabel = `Now: ${slotInfo.currentSlot.subject}`;
 		} else if (slotInfo.nextSlot) {
 			nextLabel = slotInfo.nextSlot.subject;
 		}
@@ -137,9 +153,9 @@ export class ScheduleWidget extends BaseWidget {
 			parent,
 		});
 
-		this.renderStatCard(statsRow, "📚", "Сегодня", `${todayCount} пар`);
-		this.renderStatCard(statsRow, "📅", "За неделю", `${weekCount} пар`);
-		this.renderStatCard(statsRow, "➡️", "Следующая", nextLabel);
+		this.renderStatCard(statsRow, "📚", "Today", `${todayCount} classes`);
+		this.renderStatCard(statsRow, "📅", "This week", `${weekCount} classes`);
+		this.renderStatCard(statsRow, "➡️", "Next", nextLabel);
 	}
 
 	private renderStatCard(parent: HTMLElement, icon: string, label: string, value: string): void {
@@ -157,7 +173,9 @@ export class ScheduleWidget extends BaseWidget {
 		parent: HTMLElement,
 		data: UmOSData,
 		weekKey: "week1" | "week2",
-		day: string
+		day: string,
+		dateISO: string,
+		taskOverlays: Task[]
 	): void {
 		const daySlots = getSlotsForDay(data, weekKey, day);
 		const totalSlots = Math.max(1, data.settings.scheduleSlotsPerDay || 0);
@@ -174,9 +192,10 @@ export class ScheduleWidget extends BaseWidget {
 		if (filledSlots.length === 0) {
 			createElement("div", {
 				cls: "umos-info-message",
-				text: "Сегодня нет пар 🎉",
+				text: "Today none classes 🎉",
 				parent,
 			});
+			this.renderTaskOverlays(parent, dateISO, taskOverlays);
 			return;
 		}
 
@@ -206,7 +225,7 @@ export class ScheduleWidget extends BaseWidget {
 				parent: list,
 			});
 
-			// Время
+			//
 			const timeCol = createElement("div", {
 				cls: "umos-schedule-slot-time-col",
 				parent: card,
@@ -214,7 +233,7 @@ export class ScheduleWidget extends BaseWidget {
 
 			createElement("div", {
 				cls: "umos-schedule-slot-number",
-				text: `Пара ${slotNumber}`,
+				text: `Class ${slotNumber}`,
 				parent: timeCol,
 			});
 
@@ -230,7 +249,7 @@ export class ScheduleWidget extends BaseWidget {
 				parent: timeCol,
 			});
 
-			// Информация
+			// Information
 			const infoCol = createElement("div", {
 				cls: "umos-schedule-slot-info-col",
 				parent: card,
@@ -268,10 +287,10 @@ export class ScheduleWidget extends BaseWidget {
 				let countdownText = "";
 				if (isCurrent && slot.endTime && day === getDayOfWeek()) {
 					const left = formatSlotCountdown(slot.endTime);
-					if (left) countdownText = `До конца: ${left}`;
+					if (left) countdownText = `Ends in: ${left}`;
 				} else if (isNext && slot.startTime && day === getDayOfWeek()) {
 					const left = formatSlotCountdown(slot.startTime);
-					if (left) countdownText = `Через: ${left}`;
+					if (left) countdownText = `Starts in: ${left}`;
 				}
 
 				if (countdownText) {
@@ -282,6 +301,46 @@ export class ScheduleWidget extends BaseWidget {
 					});
 				}
 			}
+		}
+
+		this.renderTaskOverlays(parent, dateISO, taskOverlays);
+	}
+
+	private renderTaskOverlays(parent: HTMLElement, dateISO: string, tasks: Task[]): void {
+		if (!this.config.tasks) return;
+		createElement("div", {
+			cls: "umos-schedule-section-title",
+			text: `✅ Day Tasks · ${dateISO}`,
+			parent,
+		});
+
+		if (tasks.length === 0) {
+			createElement("div", {
+				cls: "umos-info-message",
+				text: "No tasks for this day.",
+				parent,
+			});
+			return;
+		}
+
+		const list = createElement("div", { cls: "umos-schedule-task-list", parent });
+		for (const task of tasks) {
+			const item = createElement("button", {
+				cls: `umos-schedule-task-item priority-${task.priority}`,
+				parent: list,
+				attr: { type: "button" },
+			});
+			item.createSpan({ cls: "umos-schedule-task-title", text: task.description });
+			const badges = item.createSpan({ cls: "umos-schedule-task-badges" });
+			if (task.dueDate === dateISO) badges.createSpan({ cls: "umos-schedule-task-badge", text: "due" });
+			if (task.scheduledDate === dateISO) badges.createSpan({ cls: "umos-schedule-task-badge", text: "scheduled" });
+			if (task.priority !== "none") badges.createSpan({ cls: "umos-schedule-task-badge", text: task.priority });
+			item.addEventListener("click", () => {
+				void this.obsidianApp.workspace.openLinkText(task.filePath, task.filePath, false).then(() => {
+					const view = this.obsidianApp.workspace.getActiveViewOfType(MarkdownView);
+					if (view) view.editor.setCursor(task.lineNumber, 0);
+				});
+			});
 		}
 	}
 
@@ -294,7 +353,7 @@ export class ScheduleWidget extends BaseWidget {
 	): void {
 		createElement("div", {
 			cls: "umos-schedule-section-title",
-			text: "📆 Обзор недели",
+			text: "📆 Week Overview",
 			parent,
 		});
 
@@ -316,7 +375,7 @@ export class ScheduleWidget extends BaseWidget {
 			});
 			dayCol.setAttribute("role", "button");
 			dayCol.setAttribute("tabindex", "0");
-			dayCol.setAttribute("title", `Показать ${WEEKDAY_LABELS_RU[day] || day}`);
+			dayCol.setAttribute("title", `Show ${WEEKDAY_LABELS_RU[day] || day}`);
 			dayCol.addEventListener("click", () => {
 				this.selectedDay = day;
 				this.render();
@@ -341,7 +400,7 @@ export class ScheduleWidget extends BaseWidget {
 				parent: dayCol,
 			});
 
-			// Мини-блоки пар
+			// - classes
 			const blocks = createElement("div", {
 				cls: "umos-schedule-week-day-blocks",
 				parent: dayCol,
@@ -378,6 +437,45 @@ export class ScheduleWidget extends BaseWidget {
 		}
 		if (today === "sunday") return WEEKDAYS[0];
 		return today;
+	}
+
+	private getDateForDay(
+		activeWeekKey: "week1" | "week2",
+		currentWeekKey: "week1" | "week2",
+		day: string
+	): string {
+		const dayIndex = Math.max(0, WEEKDAYS.indexOf(day));
+		const base = moment().startOf("isoWeek").add(dayIndex, "days");
+		if (activeWeekKey !== currentWeekKey) base.add(7, "days");
+		return base.format("YYYY-MM-DD");
+	}
+
+	private async getTaskOverlaysForDay(dateISO: string): Promise<Task[]> {
+		const allTasks = await this.taskService.getTasksWithQuery({
+			path: this.config.taskPath,
+			status: ["todo", "doing"],
+		});
+		const flat = this.flattenTasks(allTasks);
+		const mode = this.config.taskMode ?? "both";
+		return flat.filter((task) => {
+			if (task.status === "done" || task.status === "cancelled") return false;
+			const matchesDue = task.dueDate === dateISO;
+			const matchesScheduled = task.scheduledDate === dateISO;
+			if (mode === "due") return matchesDue;
+			if (mode === "scheduled") return matchesScheduled;
+			return matchesDue || matchesScheduled;
+		});
+	}
+
+	private flattenTasks(tasks: Task[]): Task[] {
+		const flat: Task[] = [];
+		for (const task of tasks) {
+			flat.push(task);
+			if (task.subtasks.length > 0) {
+				flat.push(...this.flattenTasks(task.subtasks as Task[]));
+			}
+		}
+		return flat;
 	}
 
 	private getSlotNumber(

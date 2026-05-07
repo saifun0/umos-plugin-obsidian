@@ -5,8 +5,8 @@ export function renderPrayerSection(containerEl: HTMLElement, ctx: SettingsConte
 	const sectionEl = createSection(
 		containerEl,
 		"umos-settings-prayer",
-		"Намаз",
-		"Расчёт времени, статус-бар и отображение."
+		"Prayer",
+		"Calculation method, status bar, and linked note for the prayer dashboard."
 	);
 
 	const methodOptions: Record<string, string> = {
@@ -27,37 +27,52 @@ export function renderPrayerSection(containerEl: HTMLElement, ctx: SettingsConte
 		"15": "Moonsighting Committee Worldwide",
 	};
 
+	createSubheading(sectionEl, "Calculation");
+
 	new Setting(sectionEl)
-		.setName("Метод расчёта")
+		.setName("Calculation Method")
 		.addDropdown((dropdown) =>
-			dropdown.addOptions(methodOptions).setValue(String(ctx.settings.prayerMethod))
-				.onChange(async (value) => { ctx.settings.prayerMethod = parseInt(value, 10); await ctx.saveSettings(); })
+			dropdown
+				.addOptions(methodOptions)
+				.setValue(String(ctx.settings.prayerMethod))
+				.onChange(async (value) => {
+					ctx.settings.prayerMethod = parseInt(value, 10);
+					await ctx.saveSettings();
+				})
 		);
 
-	// Display
-	createSubheading(sectionEl, "Отображение");
+	createSubheading(sectionEl, "Display");
 
 	new Setting(sectionEl)
-		.setName("StatusBar")
-		.setDesc("Показывать следующий намаз в StatusBar")
+		.setName("Status bar")
+		.setDesc("Show the next prayer in the status bar.")
 		.addToggle((toggle) =>
-			toggle.setValue(ctx.settings.prayerShowStatusBar)
-				.onChange(async (value) => { ctx.settings.prayerShowStatusBar = value; await ctx.saveSettings(); })
+			toggle.setValue(ctx.settings.prayerShowStatusBar).onChange(async (value) => {
+				ctx.settings.prayerShowStatusBar = value;
+				await ctx.saveSettings();
+			})
 		);
 
 	new Setting(sectionEl)
 		.setName("Sunrise")
-		.setDesc("Показывать время восхода")
+		.setDesc("Show sunrise together with prayer times.")
 		.addToggle((toggle) =>
-			toggle.setValue(ctx.settings.prayerShowSunrise)
-				.onChange(async (value) => { ctx.settings.prayerShowSunrise = value; await ctx.saveSettings(); })
+			toggle.setValue(ctx.settings.prayerShowSunrise).onChange(async (value) => {
+				ctx.settings.prayerShowSunrise = value;
+				await ctx.saveSettings();
+			})
 		);
 
 	new Setting(sectionEl)
-		.setName("Дашборд намаза")
-		.setDesc("Путь к заметке (клик по StatusBar)")
+		.setName("Prayer Dashboard")
+		.setDesc("Note opened when the status bar is clicked.")
 		.addText((text) =>
-			text.setPlaceholder("05 Dashboards/Prayer").setValue(ctx.settings.prayerDashboardPath)
-				.onChange(async (value) => { ctx.settings.prayerDashboardPath = value; await ctx.saveSettings(); })
+			text
+				.setPlaceholder("05 Dashboards/Prayer")
+				.setValue(ctx.settings.prayerDashboardPath)
+				.onChange(async (value) => {
+					ctx.settings.prayerDashboardPath = value;
+					await ctx.saveSettings();
+				})
 		);
 }

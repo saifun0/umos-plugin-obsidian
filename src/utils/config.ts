@@ -1,7 +1,7 @@
 /**
- * Парсит конфигурацию виджета из тела code block.
- * Формат: key: value (по одному на строку).
- * Поддерживает строки, булевы, числа и массивы ([a, b, c]).
+ *    of  code block.
+ * : key: value (   ).
+ *  , ,    ([a, b, c]).
  */
 export function parseWidgetConfig(source: string): Record<string, unknown> {
 	const result: Record<string, unknown> = {};

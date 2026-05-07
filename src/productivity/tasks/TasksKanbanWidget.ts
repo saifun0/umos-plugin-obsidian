@@ -68,9 +68,9 @@ export class TasksKanbanWidget extends BaseWidget {
         const tasks = allTasks.filter(t => t.indentation === 0);
 
         const columns: KanbanColumn[] = [
-            { status: 'todo',  label: 'К выполнению', color: '#f39c12', tasks: [] },
-            { status: 'doing', label: 'В процессе',   color: '#7c5cbf', tasks: [] },
-            { status: 'done',  label: 'Выполнено',    color: '#27ae60', tasks: [] },
+            { status: 'todo',  label: 'To Do', color: '#f39c12', tasks: [] },
+            { status: 'doing', label: 'In Progress',   color: '#7c5cbf', tasks: [] },
+            { status: 'done',  label: 'Done',    color: '#27ae60', tasks: [] },
         ];
 
         for (const task of tasks) {
@@ -97,7 +97,7 @@ export class TasksKanbanWidget extends BaseWidget {
         left.createSpan({ text: column.label, cls: 'umos-kanban-column-title' });
         left.createSpan({ text: `${column.tasks.length}`, cls: 'umos-kanban-column-count' });
 
-        const addBtn = header.createEl('button', { cls: 'umos-kanban-add-btn', attr: { 'aria-label': 'Добавить задачу' } });
+        const addBtn = header.createEl('button', { cls: 'umos-kanban-add-btn', attr: { 'aria-label': 'Add task' } });
         setIcon(addBtn, 'plus');
         addBtn.addEventListener('click', () => this.openCreateModal(column.status));
 
@@ -128,7 +128,7 @@ export class TasksKanbanWidget extends BaseWidget {
         }
 
         if (column.tasks.length === 0) {
-            list.createDiv({ cls: 'umos-kanban-empty', text: 'Пусто' });
+            list.createDiv({ cls: 'umos-kanban-empty', text: 'Empty' });
         }
     }
 
@@ -149,7 +149,7 @@ export class TasksKanbanWidget extends BaseWidget {
         const topRow = card.createDiv({ cls: 'umos-kanban-card-top' });
 
         if (task.priority !== 'none') {
-            const priorityLabels: Record<string, string> = { high: 'Важно', medium: 'Средне', low: 'Не срочно' };
+            const priorityLabels: Record<string, string> = { high: 'Important', medium: 'Medium', low: 'Low urgency' };
             topRow.createSpan({
                 cls: `umos-kanban-priority-badge priority-${task.priority}`,
                 text: priorityLabels[task.priority]
@@ -187,7 +187,7 @@ export class TasksKanbanWidget extends BaseWidget {
         if (task.dueDate) {
             meta.createSpan({
                 cls: isOverdue ? 'umos-task-date-badge is-overdue' : 'umos-task-date-badge',
-                text: `срок: ${task.dueDate}`
+                text: `due: ${task.dueDate}`
             });
         }
         task.tags.forEach(tag => {
@@ -221,7 +221,7 @@ export class TasksKanbanWidget extends BaseWidget {
         const menu = new Menu();
 
         menu.addItem(item => item
-            .setTitle('Редактировать').setIcon('pencil')
+            .setTitle('Edit').setIcon('pencil')
             .onClick(() => {
                 new TaskEditorModal(this.app, task,
                     async (updated, subtasks) => {
@@ -244,7 +244,7 @@ export class TasksKanbanWidget extends BaseWidget {
 
         if (task.status !== 'doing') {
             menu.addItem(item => item
-                .setTitle('→ В процессе').setIcon('play')
+                .setTitle('→ In Progress').setIcon('play')
                 .onClick(async () => {
                     task.status = 'doing';
                     this.isUpdating = true;
@@ -254,7 +254,7 @@ export class TasksKanbanWidget extends BaseWidget {
         }
         if (task.status !== 'done') {
             menu.addItem(item => item
-                .setTitle('→ Выполнено').setIcon('check')
+                .setTitle('→ Done').setIcon('check')
                 .onClick(async () => {
                     task.status = 'done';
                     this.isUpdating = true;
@@ -264,7 +264,7 @@ export class TasksKanbanWidget extends BaseWidget {
         }
         if (task.status !== 'todo') {
             menu.addItem(item => item
-                .setTitle('→ К выполнению').setIcon('circle')
+                .setTitle('→ To Do').setIcon('circle')
                 .onClick(async () => {
                     task.status = 'todo';
                     this.isUpdating = true;
@@ -276,7 +276,7 @@ export class TasksKanbanWidget extends BaseWidget {
         menu.addSeparator();
 
         menu.addItem(item => item
-            .setTitle('Удалить').setIcon('trash')
+            .setTitle('Delete').setIcon('trash')
             .onClick(async () => {
                 this.isUpdating = true;
                 await this.service.deleteTask(task);
@@ -294,7 +294,7 @@ export class TasksKanbanWidget extends BaseWidget {
         new TaskEditorModal(this.app, newTask, async (task, subtasks) => {
             const filePath = this.resolveCreateTargetPath();
             if (!filePath) {
-                new Notice('Не удалось определить файл для создания задачи');
+                new Notice('Could not determine the file for creating a task');
                 return;
             }
             const lineNum = await this.service.createTask(task, filePath);

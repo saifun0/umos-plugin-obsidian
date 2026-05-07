@@ -1,7 +1,3 @@
-/**
- * Обёртка для сетевых запросов: использует requestUrl из Obsidian API
- * (обходит CORS), с retry и error handling.
- */
 import { requestUrl } from "obsidian";
 
 export interface FetchOptions {
@@ -16,9 +12,6 @@ const DEFAULT_FETCH_OPTIONS: Required<FetchOptions> = {
 	retryDelay: 1000,
 };
 
-/**
- * Ошибка API-запроса.
- */
 export class ApiError extends Error {
 	public status: number;
 	public url: string;
@@ -31,11 +24,6 @@ export class ApiError extends Error {
 	}
 }
 
-/**
- * Безопасный HTTP-запрос через Obsidian requestUrl (без CORS),
- * с retry и timeout.
- * Возвращает JSON-ответ или выбрасывает ApiError.
- */
 export async function safeFetch<T>(
 	url: string,
 	options?: FetchOptions
@@ -59,7 +47,6 @@ export async function safeFetch<T>(
 		} catch (error) {
 			lastError = error as Error;
 
-			// Не retry на 4xx ошибках (кроме 429)
 			if (
 				error instanceof ApiError &&
 				error.status >= 400 &&
@@ -75,19 +62,13 @@ export async function safeFetch<T>(
 		}
 	}
 
-	throw lastError || new Error(`Не удалось загрузить: ${url}`);
+	throw lastError || new Error(`Could not load: ${url}`);
 }
 
-/**
- * Задержка.
- */
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Формирует URL для Aladhan API по городу/стране.
- */
 export function buildAladhanUrl(
 	date: string,
 	city: string,
@@ -97,9 +78,6 @@ export function buildAladhanUrl(
 	return `https://api.aladhan.com/v1/timingsByCity/${date}?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=${method}`;
 }
 
-/**
- * Формирует URL для Aladhan API по координатам.
- */
 export function buildAladhanUrlByCoords(
 	date: string,
 	latitude: number,
@@ -115,9 +93,6 @@ export interface GeoIpResult {
 	city: string;
 }
 
-/**
- * Определение геолокации по IP через ip-api.com (запасной вариант).
- */
 async function fetchGeoIp(): Promise<GeoIpResult> {
 	const data = await safeFetch<{ lat: number; lon: number; city: string }>(
 		"http://ip-api.com/json/?fields=lat,lon,city"
@@ -125,22 +100,6 @@ async function fetchGeoIp(): Promise<GeoIpResult> {
 	return { latitude: data.lat, longitude: data.lon, city: data.city };
 }
 
-
-/**
- * Определение геолокации по IP через ip-api.com.
- * navigator.geolocation в Electron (Obsidian) не работает —
- * внутри обращается к Google Network Location API и получает 403.
- */
 export async function detectLocation(): Promise<GeoIpResult> {
 	return fetchGeoIp();
-}
-
-/**
- * Формирует URL для Al Quran Cloud API.
- */
-export function buildQuranAyahUrl(
-	ayahNumber: number,
-	edition: string
-): string {
-	return `https://api.alquran.cloud/v1/ayah/${ayahNumber}/${edition}`;
 }

@@ -1,8 +1,5 @@
 import { Events } from "obsidian";
 
-/**
- * Типизированные события umOS для межмодульной коммуникации.
- */
 export interface PrayerTimesData {
 	Fajr: string;
 	Sunrise: string;
@@ -13,46 +10,51 @@ export interface PrayerTimesData {
 	[key: string]: string;
 }
 
-export interface CachedAyah {
-	number: number;
-	surahNumber: number;
-	ayahInSurah: number;
-	arabicText: string;
-	translationText: string;
-	surahNameRu: string;
-}
-
 export interface UmOSEventMap {
 	"prayer:updated": [data: { times: PrayerTimesData; hijriDate: string }];
 	"frontmatter:changed": [data: { path: string; property: string; value: unknown }];
 	"stats:recalculated": [data: { period: number }];
-	"habit:toggled": [data: { habit: string; date: string; value: boolean }];
 	"daily:created": [data: { path: string; date: string }];
-	"quran:ayat-loaded": [data: { date: string; ayahs: CachedAyah[] }];
 	"schedule:changed": [];
-	"ramadan:toggled": [data: { date: string; field: "fasting" | "tarawih"; value: boolean }];
-	"pomodoro:completed": [data: { date: string; count: number }];
-	"pomodoro:state-changed": [data: { state: "idle" | "work" | "break" }];
-	"exam:changed": [];
-	"finance:transaction-added": [data: { transaction: { id: string; date: string; type: "income" | "expense"; amount: number; categoryId: string; description: string } }];
-	"finance:transaction-updated": [data: { transaction: { id: string; date: string; type: "income" | "expense"; amount: number; categoryId: string; description: string } }];
-	"finance:transaction-deleted": [data: { transactionId: string }];
-	"finance:budget-updated": [data: { month: string; budget: number }];
-	"finance:balance-updated": [data: { balance: number }];
-	"finance:recurring-updated": [];
+	"tasks:changed": [data?: { action?: string; path?: string }];
+	"dashboard:profile-saved": [data: { id: string; name: string }];
+	"dashboard:generated": [data: { id: string; path: string }];
+	"widget:config-invalid": [data: { blockName: string; sourcePath?: string; errors: string[]; warnings: string[] }];
+	"command:executed": [data: { command: string; target?: string }];
+	"command:failed": [data: { command: string; reason: string }];
 	"weather:updated": [];
 	"location:updated": [];
-	"goals:updated": [];
-	"balance:updated": [];
 	"settings:changed": [];
 }
 
-/**
- * EventBus — типизированная шина событий для межмодульной коммуникации.
- * Обёртка над Obsidian Events с типизацией.
- */
+export interface UmOSDiagnosticEvent {
+	event: string;
+	timestamp: number;
+	payload?: unknown;
+}
+
+export interface UmOSWidgetDiagnostic {
+	blockName: string;
+	sourcePath?: string;
+	errors: string[];
+	warnings: string[];
+	timestamp: number;
+}
+
+export interface UmOSDiagnosticsSnapshot {
+	recentEvents: UmOSDiagnosticEvent[];
+	widgetErrors: UmOSWidgetDiagnostic[];
+	renderedWidgets: number;
+	renderedByBlock: Record<string, number>;
+}
+
 export class EventBus {
 	private events: Events;
+	private recentEvents: UmOSDiagnosticEvent[] = [];
+	private widgetErrors: UmOSWidgetDiagnostic[] = [];
+	private renderedWidgets = 0;
+	private renderedByBlock: Record<string, number> = {};
+	private readonly diagnosticLimit = 80;
 
 	constructor() {
 		this.events = new Events();
@@ -84,13 +86,47 @@ export class EventBus {
 		event: K,
 		...args: UmOSEventMap[K]
 	): void {
+		this.recordEvent(event as string, args[0]);
 		this.events.trigger(event as string, ...args);
 	}
 
 	offAll(): void {
-		// Events в Obsidian не предоставляет метод offAll,
-		// но при unload плагина мы просто перестаём использовать этот инстанс.
-		// Создаём новый Events для полного сброса.
 		this.events = new Events();
+	}
+
+	recordWidgetRender(blockName: string): void {
+		this.renderedWidgets++;
+		this.renderedByBlock[blockName] = (this.renderedByBlock[blockName] ?? 0) + 1;
+	}
+
+	recordWidgetConfigInvalid(data: {
+		blockName: string;
+		sourcePath?: string;
+		errors: string[];
+		warnings: string[];
+	}): void {
+		this.widgetErrors.unshift({ ...data, timestamp: Date.now() });
+		this.widgetErrors = this.widgetErrors.slice(0, this.diagnosticLimit);
+	}
+
+	getDiagnostics(): UmOSDiagnosticsSnapshot {
+		return {
+			recentEvents: [...this.recentEvents],
+			widgetErrors: [...this.widgetErrors],
+			renderedWidgets: this.renderedWidgets,
+			renderedByBlock: { ...this.renderedByBlock },
+		};
+	}
+
+	clearDiagnostics(): void {
+		this.recentEvents = [];
+		this.widgetErrors = [];
+		this.renderedWidgets = 0;
+		this.renderedByBlock = {};
+	}
+
+	private recordEvent(event: string, payload?: unknown): void {
+		this.recentEvents.unshift({ event, timestamp: Date.now(), payload });
+		this.recentEvents = this.recentEvents.slice(0, this.diagnosticLimit);
 	}
 }

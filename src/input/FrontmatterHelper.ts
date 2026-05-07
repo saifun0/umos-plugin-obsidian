@@ -3,8 +3,8 @@ import { EventBus } from "../EventBus";
 import { debounce } from "../utils/dom";
 
 /**
- * FrontmatterHelper — чтение/запись frontmatter с debounce и optimistic update.
- * Единый инструмент для всех input-виджетов.
+ * FrontmatterHelper — thu/ frontmatter  debounce  optimistic update.
+ *     input-.
  */
 export class FrontmatterHelper {
 	private app: App;
@@ -18,7 +18,7 @@ export class FrontmatterHelper {
 	}
 
 	/**
-	 * Читает значение из frontmatter текущего файла.
+	 *   of frontmatter  .
 	 */
 	readProperty(file: TFile, property: string): unknown {
 		const cache = this.app.metadataCache.getFileCache(file);
@@ -27,8 +27,8 @@ export class FrontmatterHelper {
 	}
 
 	/**
-	 * Записывает значение в frontmatter с debounce 300мс.
-	 * Публикует frontmatter:changed в EventBus.
+	 *    frontmatter  debounce 300.
+	 *  frontmatter:changed  EventBus.
 	 */
 	writeProperty(file: TFile, property: string, value: unknown): void {
 		const key = `${file.path}::${property}`;
@@ -45,14 +45,14 @@ export class FrontmatterHelper {
 	}
 
 	/**
-	 * Записывает немедленно (без debounce). Используется для критичных операций.
+	 *   ( debounce).    .
 	 */
 	writePropertyImmediate(file: TFile, property: string, value: unknown): void {
 		this.doWrite(file, property, value);
 	}
 
 	/**
-	 * Внутренняя запись через processFrontMatter.
+	 *   in processFrontMatter.
 	 */
 	private async doWrite(file: TFile, property: string, value: unknown): Promise<void> {
 		try {
@@ -71,7 +71,7 @@ export class FrontmatterHelper {
 	}
 
 	/**
-	 * Очистка кеша дебаунсеров.
+	 *   .
 	 */
 	destroy(): void {
 		this.debouncedWriters.clear();

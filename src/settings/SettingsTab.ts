@@ -1,32 +1,52 @@
-import { App, PluginSettingTab } from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 import type UmOSPlugin from "../main";
+import { setLanguage } from "../i18n";
 import type { SettingsContext } from "./helpers";
 import { renderScaffoldSection } from "./sections/scaffold";
 import { renderDailyNoteSection } from "./sections/dailyNote";
-import { renderHabitsSection } from "./sections/habits";
-import { renderCaptureSection } from "./sections/capture";
 import { renderLocationSection } from "./sections/location";
 import { renderPrayerSection } from "./sections/prayer";
-import { renderQuranSection } from "./sections/quran";
-import { renderRamadanSection } from "./sections/ramadan";
-import { renderPomodoroSection } from "./sections/pomodoro";
-import { renderExamSection } from "./sections/exam";
 import { renderScheduleSection } from "./sections/schedule";
 import { renderContentSection } from "./sections/content";
 import { renderHomeSection } from "./sections/home";
 import { renderStatsSection } from "./sections/stats";
-import { renderFinanceSection } from "./sections/finance";
-import { renderBalanceSection } from "./sections/balance";
 import { renderSyncSection } from "./sections/sync";
 import { renderProfileSection } from "./sections/profile";
 import { renderDemoNoteSection } from "./sections/demoNote";
+import { renderDashboardSection, renderDiagnosticsSection } from "./sections/dashboard";
 
-const TABS = [
-	{ id: "system",       icon: "🔧", label: "Система"        },
-	{ id: "islam",        icon: "🕌", label: "Ислам"           },
-	{ id: "study",        icon: "📚", label: "Учёба"           },
-	{ id: "productivity", icon: "⚡", label: "Продуктивность"  },
-	{ id: "other",        icon: "🌍", label: "Прочее"          },
+interface SettingsTabMeta {
+	id: string;
+	icon: string;
+	label: string;
+	description: string;
+}
+
+const TABS: readonly SettingsTabMeta[] = [
+	{
+		id: "system",
+		icon: "🔧",
+		label: "System",
+		description: "Profile, Home, daily note, stats, and utility actions.",
+	},
+	{
+		id: "islam",
+		icon: "🕌",
+		label: "Islam",
+		description: "Prayer and geolocation for religious and weather blocks.",
+	},
+	{
+		id: "study",
+		icon: "📚",
+		label: "Study",
+		description: "Schedule and school grid parameters.",
+	},
+	{
+		id: "other",
+		icon: "🌍",
+		label: "Other",
+		description: "Content types and the rest of the gallery structure.",
+	},
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -43,13 +63,11 @@ export class UmOSSettingsTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.addClass("umos-settings-root");
 
-		// ── Header ──
-		containerEl.createEl("h1", { text: "umOS — Настройки" });
-		containerEl.createEl("p", {
-			text: "by Saifun",
-			cls: "setting-item-description umos-settings-author",
+		const rootEl = containerEl.createDiv({ cls: "umos-settings-root" });
+		rootEl.createEl("h1", {
+			text: "umOS — Settings",
+			cls: "umos-settings-title",
 		});
 
 		const ctx: SettingsContext = {
@@ -61,57 +79,83 @@ export class UmOSSettingsTab extends PluginSettingTab {
 			display: () => this.display(),
 		};
 
-		// ── Tab nav ──
-		const nav = containerEl.createDiv({ cls: "umos-settings-nav" });
-		const groups = {} as Record<TabId, HTMLElement>;
-		TABS.forEach(tab => {
-			groups[tab.id] = containerEl.createDiv({ cls: "umos-settings-group" });
-		});
+		const navEl = rootEl.createDiv({ cls: "umos-settings-nav" });
+		const groups: Record<TabId, HTMLElement> = {} as Record<TabId, HTMLElement>;
+		const navBtns: HTMLButtonElement[] = [];
 
-		const navBtns: HTMLElement[] = [];
-		TABS.forEach(tab => {
-			const btn = nav.createEl("button", { cls: "umos-settings-nav-btn" });
+		for (const tab of TABS) {
+			const btn = navEl.createEl("button", {
+				cls: "umos-settings-nav-btn",
+				attr: { type: "button" },
+			});
 			btn.createSpan({ cls: "umos-settings-nav-icon", text: tab.icon });
 			btn.createSpan({ cls: "umos-settings-nav-label", text: tab.label });
 			btn.addEventListener("click", () => this.showTab(tab.id, groups, navBtns));
 			navBtns.push(btn);
-		});
 
-		// ── Sections → groups ──
+			const groupEl = rootEl.createDiv({ cls: "umos-settings-group" });
+			const introEl = groupEl.createDiv({ cls: "umos-settings-group-header" });
+			introEl.createEl("h2", {
+				text: `${tab.icon} ${tab.label}`,
+				cls: "umos-settings-group-title",
+			});
+			introEl.createEl("p", {
+				text: tab.description,
+				cls: "umos-settings-group-desc",
+			});
+
+			groups[tab.id] = groupEl;
+		}
+
+		this.renderLanguageSetting(groups.system, ctx);
 		renderProfileSection(groups.system, ctx);
-		renderScaffoldSection(groups.system, ctx);
-		renderDemoNoteSection(groups.system, ctx);
-		renderDailyNoteSection(groups.system, ctx);
 		renderHomeSection(groups.system, ctx);
+		renderDailyNoteSection(groups.system, ctx);
 		renderStatsSection(groups.system, ctx);
 		renderSyncSection(groups.system, ctx);
+		renderDashboardSection(groups.system, ctx);
+		renderDiagnosticsSection(groups.system, ctx);
+		renderScaffoldSection(groups.system, ctx);
+		renderDemoNoteSection(groups.system, ctx);
 
 		renderPrayerSection(groups.islam, ctx);
-		renderQuranSection(groups.islam, ctx);
-		renderRamadanSection(groups.islam, ctx);
 		renderLocationSection(groups.islam, ctx);
 
 		renderScheduleSection(groups.study, ctx);
-		renderExamSection(groups.study, ctx);
 
-		renderHabitsSection(groups.productivity, ctx);
-		renderPomodoroSection(groups.productivity, ctx);
-		renderCaptureSection(groups.productivity, ctx);
-
-		renderFinanceSection(groups.other, ctx);
-		renderBalanceSection(groups.other, ctx);
 		renderContentSection(groups.other, ctx);
 
-		// ── Show active tab ──
 		this.showTab(this.activeTab, groups, navBtns);
 	}
 
-	private showTab(id: TabId, groups: Record<TabId, HTMLElement>, navBtns: HTMLElement[]): void {
+	private showTab(
+		id: TabId,
+		groups: Record<TabId, HTMLElement>,
+		navBtns: HTMLButtonElement[]
+	): void {
 		this.activeTab = id;
-		TABS.forEach((tab, i) => {
+		TABS.forEach((tab, index) => {
 			const isActive = tab.id === id;
-			groups[tab.id].style.display = isActive ? "" : "none";
-			navBtns[i].toggleClass("umos-settings-nav-btn--active", isActive);
+			groups[tab.id].style.display = isActive ? "block" : "none";
+			navBtns[index].toggleClass("umos-settings-nav-btn--active", isActive);
 		});
+	}
+
+	private renderLanguageSetting(containerEl: HTMLElement, ctx: SettingsContext): void {
+		new Setting(containerEl)
+			.setName("Language")
+			.setDesc("Interface language for umOS widgets, dashboards, modals, and settings.")
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption("en", "English")
+					.addOption("ru", "Russian")
+					.setValue(ctx.settings.language ?? "en")
+					.onChange(async (value) => {
+						ctx.settings.language = value === "ru" ? "ru" : "en";
+						setLanguage(ctx.settings.language);
+						await ctx.saveSettings();
+						ctx.display();
+					})
+			);
 	}
 }

@@ -27,29 +27,29 @@ export class PrayerStatusBar {
 	}
 
 	/**
-	 * Инициализация: первый рендер + подписка на обновления.
+	 * :   +   .
 	 */
 	init(registerInterval: (id: number) => void): void {
 		this.update();
 
-		// Обновление каждые 30 секунд
+		//   30 seconds
 		const id = window.setInterval(() => {
 			this.update();
 		}, 30000);
 		registerInterval(id);
 
-		// Подписка на обновления данных
+		//
 		this.eventBus.on("prayer:updated", () => {
 			this.update();
 		});
 
-		// Клик по StatusBar — открыть дашборд
+		//   StatusBar —
 		this.statusBarEl.addEventListener("click", () => {
 			this.openDashboard();
 		});
 
 		this.statusBarEl.classList.add("umos-prayer-statusbar");
-		this.statusBarEl.setAttribute("aria-label", "Следующий намаз");
+		this.statusBarEl.setAttribute("aria-label", "Next prayer");
 	}
 
 	private update(): void {
@@ -57,17 +57,17 @@ export class PrayerStatusBar {
 
 		if (!next) {
 			if (this.prayerService.getTimes()) {
-				// Все намазы завершены
-				this.statusBarEl.textContent = "🕌 Все намазы завершены";
+				// All prayers completed
+				this.statusBarEl.textContent = "🕌 All prayers completed";
 			} else {
-				// Нет данных
-				this.statusBarEl.textContent = "🕌 Загрузка...";
+				// None
+				this.statusBarEl.textContent = "🕌 Loading...";
 			}
 			return;
 		}
 
 		const countdown = formatCountdown(next.minutesLeft);
-		this.statusBarEl.textContent = `🕌 ${next.nameRu} ${next.time} (через ${countdown})`;
+		this.statusBarEl.textContent = `🕌 ${next.nameRu} ${next.time} (in ${countdown})`;
 	}
 
 	private openDashboard(): void {
@@ -78,6 +78,6 @@ export class PrayerStatusBar {
 	}
 
 	destroy(): void {
-		// Интервал очищается через registerInterval в main.ts
+		//   in registerInterval  main.ts
 	}
 }

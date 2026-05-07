@@ -53,39 +53,39 @@ class KanbanCardModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.addClass("umos-kb-modal");
-		contentEl.createEl("h3", { text: this.isNew ? "Новая карточка" : "Редактировать карточку" });
+		contentEl.createEl("h3", { text: this.isNew ? "New Card" : "Edit Card" });
 
-		new Setting(contentEl).setName("Заголовок").addText(t => {
+		new Setting(contentEl).setName("Title").addText(t => {
 			t.setValue(this.card.title).onChange(v => (this.card.title = v));
 			t.inputEl.addClass("umos-kb-modal-input");
 			t.inputEl.focus();
 		});
 
-		new Setting(contentEl).setName("Описание").addTextArea(t => {
+		new Setting(contentEl).setName("Description").addTextArea(t => {
 			t.setValue(this.card.description || "").onChange(v => (this.card.description = v));
 			t.inputEl.rows = 3;
 			t.inputEl.addClass("umos-kb-modal-input");
 		});
 
 		let imgInputEl: HTMLInputElement | null = null;
-		const imgSetting = new Setting(contentEl).setName("Изображение").setDesc("URL или путь к файлу в хранилище");
+		const imgSetting = new Setting(contentEl).setName("Image").setDesc("URL or file path in the vault");
 		imgSetting.addText(t => {
 			t.setValue(this.card.coverUrl || "").onChange(v => (this.card.coverUrl = v));
 			t.inputEl.addClass("umos-kb-modal-input");
-			t.inputEl.placeholder = "https://... или Images/photo.png";
+			t.inputEl.placeholder = "https://... or Images/photo.png";
 			imgInputEl = t.inputEl;
 		});
 		imgSetting.addExtraButton(btn => {
-			btn.setIcon("folder-open").setTooltip("Выбрать из хранилища");
+			btn.setIcon("folder-open").setTooltip("Choose from vault");
 			btn.onClick(() => {
 				const imageFiles = this.app.vault.getFiles().filter(f =>
 					/\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(f.extension));
 				const picker = new Modal(this.app);
 				picker.contentEl.addClass("umos-kb-modal");
-				picker.contentEl.createEl("h3", { text: "Выбрать изображение" });
+				picker.contentEl.createEl("h3", { text: "Choose Image" });
 				const search = picker.contentEl.createEl("input", {
 					cls: "umos-kb-modal-input",
-					attr: { type: "text", placeholder: "Поиск файла..." },
+					attr: { type: "text", placeholder: "Search files..." },
 				});
 				const list = picker.contentEl.createDiv({ cls: "umos-kb-file-list" });
 				const renderFiles = (q: string) => {
@@ -109,7 +109,7 @@ class KanbanCardModal extends Modal {
 		});
 
 		if (this.board.labels.length > 0) {
-			const ls = new Setting(contentEl).setName("Метки");
+			const ls = new Setting(contentEl).setName("Labels");
 			const lw = ls.controlEl.createDiv({ cls: "umos-kb-label-picker" });
 			for (const lbl of this.board.labels) {
 				const pill = lw.createDiv({ cls: "umos-kb-label-pill-pick" });
@@ -126,11 +126,11 @@ class KanbanCardModal extends Modal {
 		}
 
 		const btnRow = contentEl.createDiv({ cls: "umos-kb-modal-btns" });
-		btnRow.createEl("button", { text: "Сохранить", cls: "mod-cta" }).addEventListener("click", () => {
+		btnRow.createEl("button", { text: "Save", cls: "mod-cta" }).addEventListener("click", () => {
 			if (!this.card.title.trim()) return;
 			this.onSave(this.card); this.close();
 		});
-		btnRow.createEl("button", { text: "Отмена" }).addEventListener("click", () => this.close());
+		btnRow.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
 	}
 
 	onClose(): void { this.contentEl.empty(); }
@@ -153,14 +153,14 @@ class KanbanColumnModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.addClass("umos-kb-modal");
-		contentEl.createEl("h3", { text: this.isNew ? "Новая колонка" : "Редактировать колонку" });
+		contentEl.createEl("h3", { text: this.isNew ? "New Column" : "Edit Column" });
 
-		new Setting(contentEl).setName("Название").addText(t => {
+		new Setting(contentEl).setName("Title").addText(t => {
 			t.setValue(this.col.title).onChange(v => (this.col.title = v));
 			t.inputEl.addClass("umos-kb-modal-input"); t.inputEl.focus();
 		});
 
-		const cs = new Setting(contentEl).setName("Цвет");
+		const cs = new Setting(contentEl).setName("Color");
 		const cw = cs.controlEl.createDiv({ cls: "umos-kb-color-picker" });
 		for (const c of PRESET_COLORS) {
 			const dot = cw.createDiv({ cls: "umos-kb-color-dot" });
@@ -174,10 +174,10 @@ class KanbanColumnModal extends Modal {
 		}
 
 		const btnRow = contentEl.createDiv({ cls: "umos-kb-modal-btns" });
-		btnRow.createEl("button", { text: "Сохранить", cls: "mod-cta" }).addEventListener("click", () => {
+		btnRow.createEl("button", { text: "Save", cls: "mod-cta" }).addEventListener("click", () => {
 			if (!this.col.title.trim()) return; this.onSave(this.col); this.close();
 		});
-		btnRow.createEl("button", { text: "Отмена" }).addEventListener("click", () => this.close());
+		btnRow.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
 	}
 
 	onClose(): void { this.contentEl.empty(); }
@@ -200,14 +200,14 @@ class KanbanLabelModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.addClass("umos-kb-modal");
-		contentEl.createEl("h3", { text: this.isNew ? "Новая метка" : "Редактировать метку" });
+		contentEl.createEl("h3", { text: this.isNew ? "New Label" : "Edit Label" });
 
-		new Setting(contentEl).setName("Название").addText(t => {
+		new Setting(contentEl).setName("Title").addText(t => {
 			t.setValue(this.label.text).onChange(v => (this.label.text = v));
 			t.inputEl.addClass("umos-kb-modal-input"); t.inputEl.focus();
 		});
 
-		const cs = new Setting(contentEl).setName("Цвет");
+		const cs = new Setting(contentEl).setName("Color");
 		const cw = cs.controlEl.createDiv({ cls: "umos-kb-color-picker" });
 		for (const c of PRESET_COLORS) {
 			const dot = cw.createDiv({ cls: "umos-kb-color-dot" });
@@ -221,10 +221,10 @@ class KanbanLabelModal extends Modal {
 		}
 
 		const btnRow = contentEl.createDiv({ cls: "umos-kb-modal-btns" });
-		btnRow.createEl("button", { text: "Сохранить", cls: "mod-cta" }).addEventListener("click", () => {
+		btnRow.createEl("button", { text: "Save", cls: "mod-cta" }).addEventListener("click", () => {
 			if (!this.label.text.trim()) return; this.onSave(this.label); this.close();
 		});
-		btnRow.createEl("button", { text: "Отмена" }).addEventListener("click", () => this.close());
+		btnRow.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
 	}
 
 	onClose(): void { this.contentEl.empty(); }
@@ -275,7 +275,7 @@ export class KanbanBoardWidget extends BaseWidget {
 
 		const addColBtn = toolbar.createEl("button", { cls: "umos-kb-toolbar-btn" });
 		setIcon(addColBtn, "layout-dashboard");
-		addColBtn.createSpan({ text: " Добавить колонку" });
+		addColBtn.createSpan({ text: " Add Column" });
 		addColBtn.addEventListener("click", () => {
 			new KanbanColumnModal(this.appRef, null, async col => {
 				board.columns.push(col);
@@ -286,19 +286,19 @@ export class KanbanBoardWidget extends BaseWidget {
 
 		const labelsBtn = toolbar.createEl("button", { cls: "umos-kb-toolbar-btn" });
 		setIcon(labelsBtn, "tag");
-		labelsBtn.createSpan({ text: " Метки" });
+		labelsBtn.createSpan({ text: " Labels" });
 		labelsBtn.addEventListener("click", () => this.openLabelsManager(board));
 
 		const wideBtn = toolbar.createEl("button", {
 			cls: `umos-kb-toolbar-btn${this.wideMode ? " is-active" : ""}`,
 		});
 		setIcon(wideBtn, this.wideMode ? "minimize-2" : "maximize-2");
-		wideBtn.title = this.wideMode ? "Обычная ширина" : "На всю ширину";
+		wideBtn.title = this.wideMode ? "Normal width" : "Full width";
 		wideBtn.addEventListener("click", () => {
 			this.wideMode = !this.wideMode;
 			wideBtn.classList.toggle("is-active", this.wideMode);
 			setIcon(wideBtn, this.wideMode ? "minimize-2" : "maximize-2");
-			wideBtn.title = this.wideMode ? "Обычная ширина" : "На всю ширину";
+			wideBtn.title = this.wideMode ? "Normal width" : "Full width";
 			this.applyWideMode(this.wideMode);
 		});
 
@@ -309,7 +309,7 @@ export class KanbanBoardWidget extends BaseWidget {
 		this.colDropIndicator = this.boardEl.createDiv({ cls: "umos-kb-col-drop-indicator" });
 
 		if (board.columns.length === 0) {
-			this.boardEl.createDiv({ cls: "umos-kb-empty", text: "Нет колонок. Нажмите «Добавить колонку»." });
+			this.boardEl.createDiv({ cls: "umos-kb-empty", text: "No columns. Click Add Column." });
 		} else {
 			for (const col of board.columns) {
 				this.renderColumn(this.boardEl, col, board);
@@ -426,7 +426,7 @@ export class KanbanBoardWidget extends BaseWidget {
 		// Collapse button
 		const collapseBtn = headerActions.createEl("button", {
 			cls: "clickable-icon",
-			attr: { "aria-label": isCollapsed ? "Развернуть" : "Свернуть" },
+			attr: { "aria-label": isCollapsed ? "Expand" : "Collapse" },
 		});
 		setIcon(collapseBtn, isCollapsed ? "chevron-right" : "chevron-down");
 		collapseBtn.addEventListener("click", () => {
@@ -434,19 +434,19 @@ export class KanbanBoardWidget extends BaseWidget {
 				this.collapsedCols.delete(col.id);
 				colEl.removeClass("is-collapsed");
 				setIcon(collapseBtn, "chevron-down");
-				collapseBtn.setAttribute("aria-label", "Свернуть");
+				collapseBtn.setAttribute("aria-label", "Collapse");
 			} else {
 				this.collapsedCols.add(col.id);
 				colEl.addClass("is-collapsed");
 				setIcon(collapseBtn, "chevron-right");
-				collapseBtn.setAttribute("aria-label", "Развернуть");
+				collapseBtn.setAttribute("aria-label", "Expand");
 			}
 		});
 
 		// FIX: use clickable-icon like TasksWidget
 		const addCardBtn = headerActions.createEl("button", {
 			cls: "clickable-icon",
-			attr: { "aria-label": "Добавить карточку" },
+			attr: { "aria-label": "Add Card" },
 		});
 		setIcon(addCardBtn, "plus");
 		addCardBtn.addEventListener("click", () => {
@@ -459,18 +459,18 @@ export class KanbanBoardWidget extends BaseWidget {
 
 		const menuBtn = headerActions.createEl("button", {
 			cls: "clickable-icon",
-			attr: { "aria-label": "Действия" },
+			attr: { "aria-label": "Actions" },
 		});
 		setIcon(menuBtn, "more-horizontal");
 		menuBtn.addEventListener("click", (e: MouseEvent) => {
 			const menu = new Menu();
-			menu.addItem(item => item.setTitle("Редактировать").setIcon("pencil").onClick(() => {
+			menu.addItem(item => item.setTitle("Edit").setIcon("pencil").onClick(() => {
 				new KanbanColumnModal(this.appRef, col, async updated => {
 					col.title = updated.title; col.color = updated.color;
 					await this.persistData(board); this.renderAsync();
 				}).open();
 			}));
-			menu.addItem(item => item.setTitle("Удалить колонку").setIcon("trash-2").onClick(async () => {
+			menu.addItem(item => item.setTitle("Delete Column").setIcon("trash-2").onClick(async () => {
 				board.columns = board.columns.filter(c => c.id !== col.id);
 				await this.persistData(board); this.renderAsync();
 			}));
@@ -593,7 +593,7 @@ export class KanbanBoardWidget extends BaseWidget {
 		// Actions — FIX: use clickable-icon
 		const actions = cardEl.createDiv({ cls: "umos-kb-card-actions" });
 
-		const editBtn = actions.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "Редактировать" } });
+		const editBtn = actions.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "Edit" } });
 		setIcon(editBtn, "pencil");
 		editBtn.addEventListener("click", e => {
 			e.stopPropagation();
@@ -607,7 +607,7 @@ export class KanbanBoardWidget extends BaseWidget {
 		if (board.columns.length > 1) {
 			const moveBtn = actions.createEl("button", {
 				cls: "clickable-icon umos-kb-card-btn--move",
-				attr: { "aria-label": "Переместить" },
+				attr: { "aria-label": "Move" },
 			});
 			setIcon(moveBtn, "arrow-right-left");
 			moveBtn.addEventListener("click", e => {
@@ -627,7 +627,7 @@ export class KanbanBoardWidget extends BaseWidget {
 
 		const delBtn = actions.createEl("button", {
 			cls: "clickable-icon umos-kb-card-btn--danger",
-			attr: { "aria-label": "Удалить" },
+			attr: { "aria-label": "Delete" },
 		});
 		setIcon(delBtn, "trash-2");
 		delBtn.addEventListener("click", e => {
@@ -642,12 +642,12 @@ export class KanbanBoardWidget extends BaseWidget {
 	private openLabelsManager(board: KanbanBoardData): void {
 		const modal = new Modal(this.appRef);
 		modal.contentEl.addClass("umos-kb-modal");
-		modal.contentEl.createEl("h3", { text: "Метки" });
+		modal.contentEl.createEl("h3", { text: "Labels" });
 		const listEl = modal.contentEl.createDiv({ cls: "umos-kb-labels-list" });
 
 		const renderList = () => {
 			listEl.empty();
-			if (board.labels.length === 0) { listEl.createDiv({ cls: "umos-kb-labels-empty", text: "Меток нет." }); return; }
+			if (board.labels.length === 0) { listEl.createDiv({ cls: "umos-kb-labels-empty", text: "No labels." }); return; }
 			for (const lbl of board.labels) {
 				const row = listEl.createDiv({ cls: "umos-kb-label-row" });
 				const pill = row.createSpan({ cls: "umos-kb-label-pill-preview" });
@@ -655,7 +655,7 @@ export class KanbanBoardWidget extends BaseWidget {
 				const acts = row.createDiv({ cls: "umos-kb-label-row-acts" });
 				const eb = acts.createEl("button", {
 					cls: "clickable-icon",
-					attr: { "aria-label": "Редактировать метку" },
+					attr: { "aria-label": "Edit Label" },
 				});
 				setIcon(eb, "pencil");
 				eb.addEventListener("click", () => {
@@ -665,7 +665,7 @@ export class KanbanBoardWidget extends BaseWidget {
 				});
 				const db = acts.createEl("button", {
 					cls: "clickable-icon",
-					attr: { "aria-label": "Удалить метку" },
+					attr: { "aria-label": "Delete Label" },
 				});
 				setIcon(db, "trash-2");
 				db.addEventListener("click", async () => {
@@ -678,7 +678,7 @@ export class KanbanBoardWidget extends BaseWidget {
 		};
 		renderList();
 
-		const addBtn = modal.contentEl.createEl("button", { text: "+ Добавить метку", cls: "mod-cta" });
+		const addBtn = modal.contentEl.createEl("button", { text: "+ Add Label", cls: "mod-cta" });
 		addBtn.style.marginTop = "12px";
 		addBtn.addEventListener("click", () => {
 			new KanbanLabelModal(this.appRef, null, async lbl => {

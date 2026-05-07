@@ -9,7 +9,7 @@ export function renderNavigationSection(parent: HTMLElement, ctx: HomeViewContex
 		parent,
 	});
 
-	// Заголовок с кнопкой редактирования
+	// Title
 	const titleRow = createElement("div", {
 		cls: "umos-home-nav-title-row",
 		parent: section,
@@ -17,12 +17,12 @@ export function renderNavigationSection(parent: HTMLElement, ctx: HomeViewContex
 
 	const editToggle = createElement("button", {
 		cls: `umos-home-nav-edit-toggle${navEditMode ? " is-active" : ""}`,
-		text: navEditMode ? "✓ Готово" : "✏️",
+		text: navEditMode ? "✓ Done" : "✏️",
 		parent: titleRow,
 	});
 	editToggle.addEventListener("click", () => {
 		navEditMode = !navEditMode;
-		// Перерендер секции
+		//  sec
 		section.remove();
 		renderNavigationSection(parent, ctx);
 	});
@@ -73,7 +73,7 @@ export function renderNavigationSection(parent: HTMLElement, ctx: HomeViewContex
 		}
 	}
 
-	// Форма добавления карточки в режиме редактирования
+	//
 	if (navEditMode) {
 		const addForm = createElement("div", {
 			cls: "umos-home-nav-add-form",
@@ -82,7 +82,7 @@ export function renderNavigationSection(parent: HTMLElement, ctx: HomeViewContex
 
 		const nameInput = createElement("input", {
 			cls: "umos-home-nav-input",
-			attr: { type: "text", placeholder: "Название" },
+			attr: { type: "text", placeholder: "Title" },
 			parent: addForm,
 		}) as HTMLInputElement;
 
@@ -94,7 +94,7 @@ export function renderNavigationSection(parent: HTMLElement, ctx: HomeViewContex
 
 		const pathInput = createElement("input", {
 			cls: "umos-home-nav-input",
-			attr: { type: "text", placeholder: "Путь к заметке" },
+			attr: { type: "text", placeholder: "Note path" },
 			parent: addForm,
 		}) as HTMLInputElement;
 
@@ -106,7 +106,7 @@ export function renderNavigationSection(parent: HTMLElement, ctx: HomeViewContex
 
 		const addBtn = createElement("button", {
 			cls: "umos-home-nav-add-btn",
-			text: "+ Добавить",
+			text: "+ Add",
 			parent: addForm,
 		});
 

@@ -8,6 +8,8 @@ export interface ITaskQuery {
     status?: TaskStatus | TaskStatus[];
     scheduled?: string;
     startDate?: string;
+    dateFrom?: string;
+    dateTo?: string;
     sort?: string;
 }
 

@@ -1,27 +1,22 @@
 import { Setting } from "obsidian";
-import { SettingsContext, createSection } from "../helpers";
+import { SettingsContext, createSection, createSubheading } from "../helpers";
 
 const ALL_METRICS: { key: string; label: string; icon: string }[] = [
-	{ key: "mood",         label: "Настроение",    icon: "😊" },
-	{ key: "productivity", label: "Продуктивность", icon: "⚡" },
-	{ key: "sleep",        label: "Сон",            icon: "😴" },
-	{ key: "prayer_count", label: "Намазы",         icon: "🕌" },
-	{ key: "exercise",     label: "Упражнения",     icon: "🏋️" },
-	{ key: "reading",      label: "Чтение",         icon: "📚" },
-	{ key: "water",        label: "Вода",           icon: "💧" },
-	{ key: "quran",        label: "Коран",          icon: "📖" },
-	{ key: "study",        label: "Учёба",          icon: "🎓" },
+	{ key: "mood", label: "Mood", icon: "😊" },
+	{ key: "productivity", label: "Productivity", icon: "⚡" },
+	{ key: "sleep", label: "Sleep", icon: "😴" },
+	{ key: "prayer_count", label: "Prayers", icon: "🕌" },
 ];
 
 export function renderStatsSection(containerEl: HTMLElement, ctx: SettingsContext): void {
-	const section = createSection(
+	const sectionEl = createSection(
 		containerEl,
 		"umos-settings-stats",
-		"Статистика",
-		"Выберите метрики, которые отображаются в блоке «Показатели дня» на главной панели (HomeView). До 4 метрик."
+		"Stats",
+		"Choose metrics for the Daily Metrics block on Home. Up to 4 can be active at once."
 	);
 
-	const wrap = section.createDiv({ cls: "umos-settings-stats-metrics" });
+	createSubheading(sectionEl, "Metrics");
 
 	const ensureArray = () => {
 		if (!Array.isArray(ctx.settings.homeStatsMetrics)) {
@@ -30,7 +25,7 @@ export function renderStatsSection(containerEl: HTMLElement, ctx: SettingsContex
 	};
 
 	for (const metric of ALL_METRICS) {
-		new Setting(wrap)
+		new Setting(sectionEl)
 			.setName(`${metric.icon} ${metric.label}`)
 			.addToggle((toggle) => {
 				ensureArray();
@@ -45,26 +40,31 @@ export function renderStatsSection(containerEl: HTMLElement, ctx: SettingsContex
 							return;
 						}
 					} else {
-						ctx.settings.homeStatsMetrics = ctx.settings.homeStatsMetrics.filter(k => k !== metric.key);
+						ctx.settings.homeStatsMetrics = ctx.settings.homeStatsMetrics.filter(
+							(key) => key !== metric.key
+						);
 					}
 					await ctx.saveSettings();
 				});
 			});
 	}
 
-	new Setting(wrap)
-		.setName("Своя метрика")
-		.setDesc("Добавить произвольный ключ frontmatter (через запятую)")
+	new Setting(sectionEl)
+		.setName("Custom Metrics")
+		.setDesc("Add custom frontmatter keys separated by commas.")
 		.addText((text) => {
 			ensureArray();
-			const knownKeys = ALL_METRICS.map(m => m.key);
-			const customKeys = ctx.settings.homeStatsMetrics.filter(k => !knownKeys.includes(k));
+			const knownKeys = ALL_METRICS.map((metric) => metric.key);
+			const customKeys = ctx.settings.homeStatsMetrics.filter((key) => !knownKeys.includes(key));
 			text.setValue(customKeys.join(", "));
 			text.setPlaceholder("focus, weight...");
 			text.onChange(async (value) => {
 				ensureArray();
-				const custom = value.split(",").map(s => s.trim()).filter(Boolean);
-				const builtin = ctx.settings.homeStatsMetrics.filter(k => knownKeys.includes(k));
+				const custom = value
+					.split(",")
+					.map((part) => part.trim())
+					.filter(Boolean);
+				const builtin = ctx.settings.homeStatsMetrics.filter((key) => knownKeys.includes(key));
 				ctx.settings.homeStatsMetrics = [...builtin, ...custom];
 				await ctx.saveSettings();
 			});

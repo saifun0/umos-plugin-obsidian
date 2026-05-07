@@ -8,7 +8,7 @@ function normalizeProjectStatus(raw: unknown): string {
 	const normalized = value.trim().toLowerCase();
 	if (normalized === "active" || normalized === "in-progress") return "active";
 	if (normalized.includes("▶️ active") || normalized.includes("▶️ in-progress")) return "active";
-	if (normalized.includes("в работе") || normalized.includes("в процессе")) return "active";
+	if (normalized.includes("active") || normalized.includes("in progress")) return "active";
 	return normalized;
 }
 
@@ -54,7 +54,7 @@ function renderFolderCards(parent: HTMLElement, title: string, folderPath: strin
 	if (activeFiles.length === 0) {
 		createElement("div", {
 			cls: "umos-home-empty",
-			text: "Нет активных элементов",
+			text: "No active items",
 			parent: section,
 		});
 		return;
@@ -79,7 +79,7 @@ function renderFolderCards(parent: HTMLElement, title: string, folderPath: strin
 
 		createElement("div", {
 			cls: "umos-home-folder-card-status",
-			text: "▶ В процессе",
+			text: "▶ In Progress",
 			parent: card,
 		});
 
@@ -90,5 +90,5 @@ function renderFolderCards(parent: HTMLElement, title: string, folderPath: strin
 }
 
 export function renderProjectsSection(parent: HTMLElement, ctx: HomeViewContext): void {
-	renderFolderCards(parent, "🚀 Активные проекты", ctx.settings.homeProjectsPath, ctx);
+	renderFolderCards(parent, "🚀 Active Projects", ctx.settings.homeProjectsPath, ctx);
 }

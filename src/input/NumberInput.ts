@@ -76,7 +76,7 @@ export class NumberInput extends MarkdownRenderChild {
 			cls: "umos-number-btn umos-number-btn-minus umos-focusable",
 			text: "−",
 			parent: controls,
-			attr: { "aria-label": "Уменьшить", tabindex: "0" },
+			attr: { "aria-label": "Decrease", tabindex: "0" },
 		});
 
 		this.displayEl = createElement("span", {
@@ -88,7 +88,7 @@ export class NumberInput extends MarkdownRenderChild {
 			cls: "umos-number-btn umos-number-btn-plus umos-focusable",
 			text: "+",
 			parent: controls,
-			attr: { "aria-label": "Увеличить", tabindex: "0" },
+			attr: { "aria-label": "Increase", tabindex: "0" },
 		});
 
 		this.updateVisual();

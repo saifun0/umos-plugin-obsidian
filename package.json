@@ -1,6 +1,6 @@
 {
   "name": "umos-plugin",
-  "version": "1.0.0",
+  "version": "0.7.0-beta",
   "description": "umOS — Obsidian plugin for student life management",
   "main": "main.js",
   "scripts": {

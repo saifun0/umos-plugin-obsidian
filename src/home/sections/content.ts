@@ -8,7 +8,7 @@ function normalizeProjectStatus(raw: unknown): string {
 	const normalized = value.trim().toLowerCase();
 	if (normalized === "active" || normalized === "in-progress") return "active";
 	if (normalized.includes("▶️ active") || normalized.includes("▶️ in-progress")) return "active";
-	if (normalized.includes("в работе") || normalized.includes("в процессе")) return "active";
+	if (normalized.includes("active") || normalized.includes("in progress")) return "active";
 	return normalized;
 }
 
@@ -34,6 +34,30 @@ function collectFolderActive(
 			result.push({ name: child.basename, path: child.path });
 		}
 	}
+}
+
+function resolveCoverUrl(file: TFile, fm: Record<string, unknown>, ctx: HomeViewContext): string {
+	const raw = fm.cover_url || fm.coverUrl || fm.cover || fm.image || fm.poster || "";
+	const coverStr = String(raw).trim();
+	if (!coverStr) return "";
+
+	if (coverStr.startsWith("http") || coverStr.startsWith("//")) {
+		return coverStr;
+	}
+
+	const clean = coverStr
+		.replace(/^!?\[\[/, "")
+		.replace(/\]\]$/, "")
+		.replace(/^!?\[.*?\]\(/, "")
+		.replace(/\)$/, "")
+		.split("|")[0]
+		.trim();
+	if (!clean) return "";
+
+	const target = ctx.app.vault.getAbstractFileByPath(clean)
+		|| ctx.app.metadataCache.getFirstLinkpathDest(clean, file.path);
+
+	return target instanceof TFile ? ctx.app.vault.getResourcePath(target) : "";
 }
 
 function collectActiveContent(
@@ -66,10 +90,12 @@ function collectActiveContent(
 
 		const current = ct.epField ? (Number(fm[ct.epField]) || 0) : 0;
 		const total = ct.totalField ? (Number(fm[ct.totalField]) || 0) : 0;
+		const coverUrl = resolveCoverUrl(child, fm, ctx);
 
 		result.push({
 			name: child.basename,
 			path: child.path,
+			coverUrl,
 			type: ct.label,
 			icon: ct.icon,
 			current,
@@ -88,7 +114,7 @@ export function renderContentSection(parent: HTMLElement, ctx: HomeViewContext):
 
 	createElement("div", {
 		cls: "umos-home-section-title",
-		text: "🎬 Текущий контент",
+		text: "🎬 Current Content",
 		parent: section,
 	});
 
@@ -104,7 +130,7 @@ export function renderContentSection(parent: HTMLElement, ctx: HomeViewContext):
 	if (activeFiles.length === 0) {
 		createElement("div", {
 			cls: "umos-home-empty",
-			text: "Нет активного контента",
+			text: "No active content",
 			parent: section,
 		});
 		return;
@@ -117,17 +143,38 @@ export function renderContentSection(parent: HTMLElement, ctx: HomeViewContext):
 
 	for (const item of activeFiles.slice(0, 6)) {
 		const card = createElement("div", {
-			cls: "umos-home-folder-card umos-card",
+			cls: `umos-home-folder-card umos-card${item.coverUrl ? " has-cover" : ""}`,
 			parent: grid,
+		});
+
+		if (item.coverUrl) {
+			const cover = createElement("div", {
+				cls: "umos-home-content-cover",
+				parent: card,
+			});
+			createElement("img", {
+				cls: "umos-home-content-cover-img",
+				attr: {
+					src: item.coverUrl,
+					alt: "",
+					loading: "lazy",
+				},
+				parent: cover,
+			});
+		}
+
+		const body = createElement("div", {
+			cls: "umos-home-content-card-body",
+			parent: card,
 		});
 
 		createElement("div", {
 			cls: "umos-home-folder-card-name",
 			text: `${item.icon} ${item.name}`,
-			parent: card,
+			parent: body,
 		});
 
-		const metaRow = createElement("div", { cls: "umos-home-content-meta", parent: card });
+		const metaRow = createElement("div", { cls: "umos-home-content-meta", parent: body });
 		createElement("span", {
 			cls: "umos-home-folder-card-status",
 			text: `▶ ${item.type}`,
@@ -147,7 +194,7 @@ export function renderContentSection(parent: HTMLElement, ctx: HomeViewContext):
 
 		if (item.total > 0) {
 			const pct = Math.min(100, Math.round((item.current / item.total) * 100));
-			const bar = createElement("div", { cls: "umos-home-content-bar", parent: card });
+			const bar = createElement("div", { cls: "umos-home-content-bar", parent: body });
 			bar.style.setProperty("--umos-content-color", item.color);
 			const fill = createElement("div", { cls: "umos-home-content-bar-fill", parent: bar });
 			fill.style.width = `${pct}%`;

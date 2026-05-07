@@ -125,7 +125,7 @@ export class SelectInput extends MarkdownRenderChild {
 
 		const emptyOpt = document.createElement("option");
 		emptyOpt.value = "";
-		emptyOpt.textContent = "— Выбрать —";
+		emptyOpt.textContent = "— Choose —";
 		select.appendChild(emptyOpt);
 
 		this.config.options.forEach((option, idx) => {

@@ -1,4 +1,4 @@
-import { Notice, Setting, TAbstractFile, TFile } from "obsidian";
+import { Notice, Setting, TAbstractFile } from "obsidian";
 import { DEFAULT_SETTINGS, DEFAULT_DATA } from "../Settings";
 import { SettingsContext, createSection } from "../helpers";
 
@@ -6,46 +6,46 @@ export function renderScaffoldSection(containerEl: HTMLElement, ctx: SettingsCon
 	const sectionEl = createSection(
 		containerEl,
 		"umos-settings-scaffold",
-		"Структура хранилища",
-		"Переместить всё содержимое в temp/ и создать директории по умолчанию."
+		"Vault Structure",
+		"Move all contents to temp/ and create default directories."
 	);
 
 	new Setting(sectionEl)
-		.setName("Создать структуру")
-		.setDesc("Существующие файлы и папки будут перемещены в temp/")
+		.setName("Create Structure")
+		.setDesc("Existing files and folders will be moved to temp/")
 		.addButton((btn) =>
 			btn
-				.setButtonText("Создать директории")
+				.setButtonText("Create Directories")
 				.setCta()
 				.onClick(async () => {
 					btn.setDisabled(true);
-					btn.setButtonText("Создание...");
+					btn.setButtonText("Created...");
 					try {
 						await scaffoldVault(ctx);
-						new Notice("✅ Структура хранилища создана");
+						new Notice("✅ Vault Structure created");
 					} catch (error) {
 						console.error("umOS: failed to scaffold vault:", error);
-						new Notice("❌ Ошибка при создании структуры");
+						new Notice("❌ Failed to create structure");
 					} finally {
 						btn.setDisabled(false);
-						btn.setButtonText("Создать директории");
+						btn.setButtonText("Create Directories");
 					}
 				})
 		);
 
 	new Setting(sectionEl)
-		.setName("Сбросить настройки")
-		.setDesc("Вернуть все настройки к значениям по умолчанию")
+		.setName("Reset Settings")
+		.setDesc("Restore all settings to their defaults")
 		.addButton((btn) =>
 			btn
-				.setButtonText("Сбросить")
+				.setButtonText("Reset")
 				.setWarning()
 				.onClick(async () => {
 					ctx.plugin.settings = { ...DEFAULT_SETTINGS };
 					ctx.plugin.data_store = { ...DEFAULT_DATA };
 					await ctx.saveSettings();
 					ctx.display();
-					new Notice("✅ Настройки сброшены");
+					new Notice("✅ Settings reset");
 				})
 		);
 }
@@ -53,7 +53,6 @@ export function renderScaffoldSection(containerEl: HTMLElement, ctx: SettingsCon
 async function scaffoldVault(ctx: SettingsContext): Promise<void> {
 	const vault = ctx.app.vault;
 
-	// Фиксированная структура хранилища
 	const dirs: string[] = [
 		"00 Files",
 		"05 Dashboards",
@@ -73,30 +72,23 @@ async function scaffoldVault(ctx: SettingsContext): Promise<void> {
 		"99 Trash",
 	];
 
-	// ── Шаг 1: Переместить всё существующее в temp/ ──
 	const root = vault.getRoot();
 	const children = root.children.filter(
-		(f: TAbstractFile) => f.name !== ".obsidian" && f.name !== "temp"
+		(file: TAbstractFile) => file.name !== ".obsidian" && file.name !== "temp"
 	);
 
 	if (children.length > 0) {
-		// Создаём temp/ если нет
 		if (!vault.getAbstractFileByPath("temp")) {
 			await vault.createFolder("temp");
 		}
 
 		for (const child of children) {
 			const dest = `temp/${child.name}`;
-			// Если в temp/ уже есть файл/папка с таким именем — добавляем суффикс
 			let finalDest = dest;
 			let counter = 1;
 			while (vault.getAbstractFileByPath(finalDest)) {
-				const ext = child.name.includes(".")
-					? "." + child.name.split(".").pop()
-					: "";
-				const base = ext
-					? child.name.slice(0, -ext.length)
-					: child.name;
+				const ext = child.name.includes(".") ? `.${child.name.split(".").pop()}` : "";
+				const base = ext ? child.name.slice(0, -ext.length) : child.name;
 				finalDest = `temp/${base}_${counter}${ext}`;
 				counter++;
 			}
@@ -104,14 +96,12 @@ async function scaffoldVault(ctx: SettingsContext): Promise<void> {
 		}
 	}
 
-	// ── Шаг 2: Создать директории ──
 	for (const dir of dirs) {
 		if (!vault.getAbstractFileByPath(dir)) {
 			await vault.createFolder(dir);
 		}
 	}
 
-	// ── Шаг 3: Создать дашборды с виджетами ──
 	await createDashboardFiles(ctx);
 }
 
@@ -127,38 +117,11 @@ async function createDashboardFiles(ctx: SettingsContext): Promise<void> {
 				"  - hide",
 				"---",
 				"",
-				"# Намаз",
+				"# Prayer",
 				"",
 				"```prayer-widget",
 				"show: both",
 				"style: full",
-				"```",
-				"",
-				"```ayat-daily",
-				"```",
-				"",
-			].join("\n"),
-		},
-		{
-			path: "05 Dashboards/Quran.md",
-			content: [
-				"---",
-				"type: dashboard",
-				"cssclasses:",
-				"  - hide",
-				"---",
-				"",
-				"# Коран",
-				"",
-				"```ayat-daily",
-				"count: 5",
-				"show_arabic: true",
-				"```",
-				"",
-				"## Прогресс чтения",
-				"",
-				"```quran-tracker",
-				"style: both",
 				"```",
 				"",
 			].join("\n"),
@@ -172,61 +135,11 @@ async function createDashboardFiles(ctx: SettingsContext): Promise<void> {
 				"  - hide",
 				"---",
 				"",
-				"# Статистика",
-				"",
-				"## Показатели",
+				"# Stats",
 				"",
 				"```umos-stats",
-				'metrics: ["mood", "productivity", "sleep", "prayer_count"]',
-				"period: 14",
 				"chart: sparkline",
 				"compare: true",
-				"```",
-				"",
-				"## Привычки",
-				"",
-				"```umos-stats",
-				'metrics: ["exercise", "reading", "water", "quran", "study"]',
-				"period: 30",
-				"chart: bar",
-				"```",
-				"",
-			].join("\n"),
-		},
-		{
-			path: "05 Dashboards/Habits.md",
-			content: [
-				"---",
-				"type: dashboard",
-				"cssclasses:",
-				"  - hide",
-				"---",
-				"",
-				"# Привычки",
-				"",
-				"```habits",
-				"style: grid",
-				"```",
-				"",
-				"## Календарь — Упражнения",
-				"",
-				"```habit-calendar",
-				"habit: exercise",
-				"months: 3",
-				"```",
-				"",
-				"## Календарь — Чтение",
-				"",
-				"```habit-calendar",
-				"habit: reading",
-				"months: 3",
-				"```",
-				"",
-				"## Календарь — Коран",
-				"",
-				"```habit-calendar",
-				"habit: quran",
-				"months: 3",
 				"```",
 				"",
 			].join("\n"),
@@ -240,7 +153,7 @@ async function createDashboardFiles(ctx: SettingsContext): Promise<void> {
 				"  - hide",
 				"---",
 				"",
-				"# Расписание",
+				"# Schedule",
 				"",
 				"```schedule",
 				"show: both",
@@ -259,26 +172,12 @@ async function createDashboardFiles(ctx: SettingsContext): Promise<void> {
 				"  - hide",
 				"---",
 				"",
-				"# Задачи",
+				"# Tasks",
 				"",
 				"```tasks-stats-widget",
 				"```",
 				"",
 				"```tasks-widget",
-				"```",
-				"",
-			].join("\n"),
-		},
-		{
-			path: "05 Dashboards/Goals.md",
-			content: [
-				"---",
-				"type: dashboard",
-				"cssclasses:",
-				"  - hide",
-				"---",
-				"",
-				"```umos-goals",
 				"```",
 				"",
 			].join("\n"),
@@ -292,62 +191,10 @@ async function createDashboardFiles(ctx: SettingsContext): Promise<void> {
 				"  - hide",
 				"---",
 				"",
-				"# Проекты",
+				"# Projects",
 				"",
 				"```project-gallery",
 				"style: grid",
-				"```",
-				"",
-			].join("\n"),
-		},
-		{
-			path: "05 Dashboards/Ramadan.md",
-			content: [
-				"---",
-				"type: dashboard",
-				"cssclasses:",
-				"  - hide",
-				"---",
-				"",
-				"# Рамадан",
-				"",
-				"```ramadan-widget",
-				"style: full",
-				"```",
-				"",
-			].join("\n"),
-		},
-		{
-			path: "05 Dashboards/Pomodoro.md",
-			content: [
-				"---",
-				"type: dashboard",
-				"cssclasses:",
-				"  - hide",
-				"---",
-				"",
-				"# Помодоро",
-				"",
-				"```pomodoro",
-				"style: full",
-				"```",
-				"",
-			].join("\n"),
-		},
-		{
-			path: "05 Dashboards/Exams.md",
-			content: [
-				"---",
-				"type: dashboard",
-				"cssclasses:",
-				"  - hide",
-				"---",
-				"",
-				"# Экзамены",
-				"",
-				"```exam-tracker",
-				"show: upcoming",
-				"style: full",
 				"```",
 				"",
 			].join("\n"),
@@ -361,44 +208,10 @@ async function createDashboardFiles(ctx: SettingsContext): Promise<void> {
 				"  - hide",
 				"---",
 				"",
-				"# Контент",
+				"# Content",
 				"",
 				"```content-gallery",
 				"style: grid",
-				"```",
-				"",
-			].join("\n"),
-		},
-		{
-			path: "05 Dashboards/Balance.md",
-			content: [
-				"---",
-				"type: dashboard",
-				"cssclasses:",
-				"  - hide",
-				"---",
-				"",
-				"# Баланс времени",
-				"",
-				"```balance-tracker",
-				"style: full",
-				"```",
-				"",
-			].join("\n"),
-		},
-		{
-			path: "05 Dashboards/Finance.md",
-			content: [
-				"---",
-				"type: dashboard",
-				"cssclasses:",
-				"  - hide",
-				"---",
-				"",
-				"# Финансы",
-				"",
-				"```finance-tracker",
-				"style: full",
 				"```",
 				"",
 			].join("\n"),
@@ -409,20 +222,6 @@ async function createDashboardFiles(ctx: SettingsContext): Promise<void> {
 		const existing = vault.getAbstractFileByPath(file.path);
 		if (!existing) {
 			await vault.create(file.path, file.content);
-			continue;
-		}
-
-		if (file.path === "05 Dashboards/Goals.md" && existing instanceof TFile) {
-			await ensureGoalsCodeBlock(ctx, existing);
 		}
 	}
-}
-
-async function ensureGoalsCodeBlock(ctx: SettingsContext, file: TFile): Promise<void> {
-	const content = await ctx.app.vault.read(file);
-	if (content.includes("```umos-goals")) return;
-	const trimmed = content.trimEnd();
-	const separator = trimmed.length > 0 ? "\n\n" : "";
-	const insert = "```umos-goals\n```\n";
-	await ctx.app.vault.modify(file, `${trimmed}${separator}${insert}`);
 }

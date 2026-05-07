@@ -1,9 +1,9 @@
 {
   "id": "umos-plugin",
   "name": "umOS",
-  "version": "0.6.0beta",
+  "version": "0.7.0-beta",
   "minAppVersion": "1.12.4",
-  "description": "Комплексная система управления жизнью.",
+  "description": "Comprehensive life management system.",
   "author": "Saifun",
   "isDesktopOnly": false
-} 
+}

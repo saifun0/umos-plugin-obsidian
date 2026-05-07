@@ -1,26 +1,28 @@
+import { getLanguage } from "../i18n";
+
 /**
- * Утилиты для работы с датами.
- * Часовой пояс по умолчанию: Europe/Moscow.
+ *     .
+ *    : Europe/Moscow.
  */
 
 const DEFAULT_TIMEZONE = "Europe/Moscow";
 
 /**
- * Возвращает текущую дату в формате YYYY-MM-DD (Europe/Moscow).
+ *      YYYY-MM-DD (Europe/Moscow).
  */
 export function getTodayDateString(): string {
 	return formatDate(getTodayInTimezone(DEFAULT_TIMEZONE));
 }
 
 /**
- * Алиас для getTodayDateString — совместимость с DailyNoteEnhancer.
+ *   getTodayDateString — mo  DailyNoteEnhancer.
  */
 export function getTodayISO(): string {
 	return formatDate(getTodayInTimezone(DEFAULT_TIMEZONE));
 }
 
 /**
- * Форматирует Date в строку YYYY-MM-DD.
+ *  Date   YYYY-MM-DD.
  */
 export function formatDate(date: Date): string {
 	const year = date.getFullYear();
@@ -30,14 +32,14 @@ export function formatDate(date: Date): string {
 }
 
 /**
- * Алиас для formatDate — совместимость с DailyNoteEnhancer.
+ *   formatDate — mo  DailyNoteEnhancer.
  */
 export function formatDateISO(date: Date): string {
 	return formatDate(date);
 }
 
 /**
- * Форматирует дату для Aladhan API (DD-MM-YYYY).
+ *    Aladhan API (DD-MM-YYYY).
  */
 export function formatDateForAladhan(date: Date): string {
 	const year = date.getFullYear();
@@ -47,7 +49,7 @@ export function formatDateForAladhan(date: Date): string {
 }
 
 /**
- * Парсит строку YYYY-MM-DD → Date.
+ *   YYYY-MM-DD → Date.
  */
 export function parseDate(dateStr: string): Date {
 	const [year, month, day] = dateStr.split("-").map(Number);
@@ -55,7 +57,7 @@ export function parseDate(dateStr: string): Date {
 }
 
 /**
- * Парсит время "HH:MM" → { hours, minutes }.
+ *   "HH:MM" → { hours, minutes }.
  */
 export function parseTime(timeStr: string): { hours: number; minutes: number } {
 	const parts = timeStr.split(":");
@@ -66,7 +68,7 @@ export function parseTime(timeStr: string): { hours: number; minutes: number } {
 }
 
 /**
- * Конвертирует время "HH:MM" в минуты от начала суток.
+ *   "HH:MM"  minutes   .
  */
 export function timeToMinutes(timeStr: string): number {
 	const { hours, minutes } = parseTime(timeStr);
@@ -74,7 +76,7 @@ export function timeToMinutes(timeStr: string): number {
 }
 
 /**
- * Конвертирует минуты от начала суток в "HH:MM".
+ *  minutes     "HH:MM".
  */
 export function minutesToTime(totalMinutes: number): string {
 	const hours = Math.floor(totalMinutes / 60);
@@ -83,7 +85,7 @@ export function minutesToTime(totalMinutes: number): string {
 }
 
 /**
- * Возвращает текущее время в формате "HH:MM".
+ *      "HH:MM".
  */
 export function getCurrentTimeString(): string {
 	const now = new Date();
@@ -91,7 +93,7 @@ export function getCurrentTimeString(): string {
 }
 
 /**
- * Возвращает текущее время в формате "HH:MM:SS".
+ *      "HH:MM:SS".
  */
 export function getCurrentTimeStringWithSeconds(): string {
 	const now = new Date();
@@ -99,7 +101,7 @@ export function getCurrentTimeStringWithSeconds(): string {
 }
 
 /**
- * Разница в днях между двумя датами (date2 - date1).
+ *       (date2 - date1).
  */
 export function diffDays(date1: Date, date2: Date): number {
 	const msPerDay = 24 * 60 * 60 * 1000;
@@ -109,8 +111,8 @@ export function diffDays(date1: Date, date2: Date): number {
 }
 
 /**
- * Определяет номер текущей недели (0 = week1, 1 = week2) на основе anchor date.
- * Двухнедельное чередование.
+ *    wk (0 = week1, 1 = week2)   anchor date.
+ * weeks .
  */
 export function getCurrentWeekNumber(anchorDateStr: string): 0 | 1 {
 	if (!anchorDateStr) return 0;
@@ -122,7 +124,7 @@ export function getCurrentWeekNumber(anchorDateStr: string): 0 | 1 {
 }
 
 /**
- * Получить тип недели (week1/week2) для произвольной даты на основе anchor_date.
+ *   wk (week1/week2)      anchor_date.
  */
 export function getCurrentWeekType(anchorDateISO: string, targetDateISO: string): "week1" | "week2" {
 	if (!anchorDateISO) return "week1";
@@ -135,7 +137,7 @@ export function getCurrentWeekType(anchorDateISO: string, targetDateISO: string)
 }
 
 /**
- * Возвращает день недели (monday, tuesday, ..., sunday).
+ *   wk (monday, tuesday, ..., sunday).
  */
 export function getDayOfWeek(date?: Date): string {
 	const d = date || new Date();
@@ -152,7 +154,7 @@ export function getDayOfWeek(date?: Date): string {
 }
 
 /**
- * Получить индекс дня недели (0 = понедельник, 6 = воскресенье).
+ *  Dec  wk (0 = Monday, 6 = Sunday).
  */
 export function getDayOfWeekIndex(date: Date): number {
 	const jsDay = date.getDay(); // 0=Sun, 1=Mon, ...
@@ -160,10 +162,10 @@ export function getDayOfWeekIndex(date: Date): number {
 }
 
 /**
- * Русские названия дней недели.
+ *   days wk.
  */
 export function getDayOfWeekRu(day: string): string {
-	const map: Record<string, string> = {
+	const map: Record<string, string> = getLanguage() === "ru" ? {
 		monday: "Понедельник",
 		tuesday: "Вторник",
 		wednesday: "Среда",
@@ -171,15 +173,23 @@ export function getDayOfWeekRu(day: string): string {
 		friday: "Пятница",
 		saturday: "Суббота",
 		sunday: "Воскресенье",
+	} : {
+		monday: "Monday",
+		tuesday: "Tuesday",
+		wednesday: "Wednesday",
+		thursday: "Thursday",
+		friday: "Friday",
+		saturday: "Saturday",
+		sunday: "Sunday",
 	};
 	return map[day] || day;
 }
 
 /**
- * Короткие русские названия дней недели.
+ *    days wk.
  */
 export function getDayOfWeekShortRu(day: string): string {
-	const map: Record<string, string> = {
+	const map: Record<string, string> = getLanguage() === "ru" ? {
 		monday: "Пн",
 		tuesday: "Вт",
 		wednesday: "Ср",
@@ -187,16 +197,25 @@ export function getDayOfWeekShortRu(day: string): string {
 		friday: "Пт",
 		saturday: "Сб",
 		sunday: "Вс",
+	} : {
+		monday: "Mon",
+		tuesday: "Tue",
+		wednesday: "Wed",
+		thursday: "Thu",
+		friday: "Fri",
+		saturday: "Sat",
+		sunday: "Sun",
 	};
 	return map[day] || day;
 }
 
 /**
- * Полная русская дата: "15 января 2025 г., среда"
+ *   : "15 January 2025 ., Wednesday"
  */
 export function getFullRussianDate(date?: Date): string {
 	const d = date || new Date();
-	const months = [
+	const isRu = getLanguage() === "ru";
+	const months = isRu ? [
 		"января",
 		"февраля",
 		"марта",
@@ -209,54 +228,77 @@ export function getFullRussianDate(date?: Date): string {
 		"октября",
 		"ноября",
 		"декабря",
+	] : [
+		"January",
+		"February",
+		"March",
+		"April",
+		"May",
+		"June",
+		"July",
+		"August",
+		"September",
+		"October",
+		"November",
+		"December",
 	];
-	const weekdays = [
-		"воскресенье",
-		"понедельник",
-		"вторник",
-		"среда",
-		"четверг",
-		"пятница",
-		"суббота",
+	const weekdays = isRu ? [
+		"Воскресенье",
+		"Понедельник",
+		"Вторник",
+		"Среда",
+		"Четверг",
+		"Пятница",
+		"Суббота",
+	] : [
+		"Sunday",
+		"Monday",
+		"Tuesday",
+		"Wednesday",
+		"Thursday",
+		"Friday",
+		"Saturday",
 	];
 	const day = d.getDate();
 	const month = months[d.getMonth()];
 	const year = d.getFullYear();
 	const weekday = weekdays[d.getDay()];
-	return `${day} ${month} ${year} г., ${weekday}`;
+	return `${day} ${month} ${year}, ${weekday}`;
 }
 
 /**
- * Формат countdown: "Xч Yмин" или "Yмин".
+ *  countdown: "X Ymin"  "Ymin".
  */
 export function formatCountdown(totalMinutes: number): string {
-	if (totalMinutes <= 0) return "сейчас";
+	const isRu = getLanguage() === "ru";
+	if (totalMinutes <= 0) return isRu ? "сейчас" : "now";
 	const hours = Math.floor(totalMinutes / 60);
 	const minutes = totalMinutes % 60;
 	if (hours > 0) {
-		return `${hours}ч ${minutes}мин`;
+		return isRu ? `${hours}ч ${minutes}мин` : `${hours}h ${minutes}min`;
 	}
-	return `${minutes}мин`;
+	return isRu ? `${minutes}мин` : `${minutes}min`;
 }
 
 /**
- * Приветствие по времени суток.
+ * Greeting   .
  */
 export function getGreeting(): { text: string; emoji: string } {
 	const hour = new Date().getHours();
+	const isRu = getLanguage() === "ru";
 	if (hour >= 5 && hour < 12) {
-		return { text: "Доброе утро", emoji: "☀️" };
+		return { text: isRu ? "Доброе утро" : "Good morning", emoji: "☀️" };
 	} else if (hour >= 12 && hour < 17) {
-		return { text: "Добрый день", emoji: "🌤️" };
+		return { text: isRu ? "Добрый день" : "Good afternoon", emoji: "🌤️" };
 	} else if (hour >= 17 && hour < 21) {
-		return { text: "Добрый вечер", emoji: "🌅" };
+		return { text: isRu ? "Добрый вечер" : "Good evening", emoji: "🌅" };
 	} else {
-		return { text: "Доброй ночи", emoji: "🌙" };
+		return { text: isRu ? "Доброй ночи" : "Good night", emoji: "🌙" };
 	}
 }
 
 /**
- * Форматирует шаблон имени файла, заменяя плейсхолдеры датой.
+ *    ,   .
  */
 export function formatTemplate(template: string, date?: Date): string {
 	const d = date || new Date();
@@ -270,7 +312,7 @@ export function formatTemplate(template: string, date?: Date): string {
 }
 
 /**
- * Seeded random number generator (для детерминированных аятов дня).
+ * Seeded random number generator ( min  ).
  * Mulberry32.
  */
 export function seededRandom(seed: number): () => number {
@@ -285,7 +327,7 @@ export function seededRandom(seed: number): () => number {
 }
 
 /**
- * Генерирует seed из строки даты.
+ *  seed of  .
  */
 export function dateSeed(dateStr: string): number {
 	let hash = 0;
@@ -297,7 +339,7 @@ export function dateSeed(dateStr: string): number {
 }
 
 /**
- * Получает сегодняшнюю дату по таймзоне.
+ *  today   .
  */
 export function getTodayInTimezone(timezone: string = DEFAULT_TIMEZONE): Date {
 	const now = new Date();

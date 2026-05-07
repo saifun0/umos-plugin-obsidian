@@ -1,27 +1,32 @@
 import { App, Notice, TFile, normalizePath } from "obsidian";
-import { UmOSSettings } from "../settings/Settings";
+import { UmOSSettings, ScheduleSlot } from "../settings/Settings";
 import { EventBus } from "../EventBus";
-import { ScheduleSlot } from "../settings/Settings";
-import { formatDateISO, getTodayISO, getDayOfWeekIndex, getCurrentWeekType } from "../utils/date";
+import { getTodayISO, getDayOfWeekIndex, getCurrentWeekType } from "../utils/date";
+import { getLocale, t } from "../i18n";
 
 const DAY_NAMES_RU: Record<string, string> = {
-	monday: "Понедельник",
-	tuesday: "Вторник",
-	wednesday: "Среда",
-	thursday: "Четверг",
-	friday: "Пятница",
-	saturday: "Суббота",
-	sunday: "Воскресенье",
+	monday: "Monday",
+	tuesday: "Tuesday",
+	wednesday: "Wednesday",
+	thursday: "Thursday",
+	friday: "Friday",
+	saturday: "Saturday",
+	sunday: "Sunday",
 };
 
 const SLOT_TYPE_RU: Record<string, string> = {
-	lecture: "Лекция",
-	seminar: "Семинар",
-	lab: "Лабораторная",
-	laboratory: "Лабораторная",
-	practice: "Практика",
-	exam: "Экзамен",
+	lecture: "Lecture",
+	seminar: "Seminar",
+	lab: "Lab",
+	laboratory: "Lab",
+	practice: "Practice",
+	exam: "Exam",
 };
+
+interface EnsureDailyNoteOptions {
+	open?: boolean;
+	notify?: boolean;
+}
 
 export class DailyNoteEnhancer {
 	constructor(
@@ -38,6 +43,12 @@ export class DailyNoteEnhancer {
 	) {}
 
 	async createDailyNote(dateISO?: string): Promise<void> {
+		await this.ensureDailyNote(dateISO, { open: true, notify: true });
+	}
+
+	async ensureDailyNote(dateISO?: string, options: EnsureDailyNoteOptions = {}): Promise<TFile | null> {
+		const open = options.open ?? false;
+		const notify = options.notify ?? false;
 		const date = dateISO || getTodayISO();
 		const fileName = this.getFileName(date);
 		const folderPath = normalizePath(this.getSettings().dailyNotesPath);
@@ -45,9 +56,9 @@ export class DailyNoteEnhancer {
 
 		const existing = this.app.vault.getAbstractFileByPath(filePath);
 		if (existing instanceof TFile) {
-			new Notice(`📝 Заметка на ${date} уже существует`);
-			await this.openFile(existing);
-			return;
+			if (notify) new Notice(t(`📝 Note for ${date} already exists`));
+			if (open) await this.openFile(existing);
+			return existing;
 		}
 
 		await this.ensureFolder(folderPath);
@@ -56,12 +67,14 @@ export class DailyNoteEnhancer {
 
 		try {
 			const file = await this.app.vault.create(filePath, content);
-			new Notice(`✅ Дневная заметка на ${date} создана`);
-			await this.openFile(file);
+			if (notify) new Notice(t(`✅ Daily note for ${date} created`));
+			if (open) await this.openFile(file);
 			this.eventBus.emit("daily:created", { path: filePath, date });
+			return file;
 		} catch (err) {
 			console.error("umOS: failed to create daily note:", err);
-			new Notice(`❌ Ошибка создания заметки: ${String(err)}`);
+			if (notify) new Notice(t(`❌ Failed to create note: ${String(err)}`));
+			return null;
 		}
 	}
 
@@ -91,7 +104,7 @@ export class DailyNoteEnhancer {
 				try {
 					await this.app.vault.createFolder(normalized);
 				} catch {
-					// папка может уже существовать
+					// folder may already exist
 				}
 			}
 		}
@@ -101,8 +114,6 @@ export class DailyNoteEnhancer {
 		const leaf = this.app.workspace.getLeaf("tab");
 		await leaf.openFile(file);
 	}
-
-	// ─── Content Generation ──────────────────
 
 	private generateContent(dateISO: string): string {
 		const sections: string[] = [];
@@ -126,12 +137,16 @@ export class DailyNoteEnhancer {
 		}
 
 		if (settings.dailySections.schedule) {
-			const s = this.generateScheduleSection(dateISO);
-			if (s) sections.push(s);
+			const section = this.generateScheduleSection(dateISO);
+			if (section) sections.push(section);
 		}
 
 		if (settings.dailySections.tasks) {
 			sections.push(this.generateTasksSection());
+		}
+
+		if (settings.dailySections.review) {
+			sections.push(this.generateReviewSection());
 		}
 
 		if (settings.dailySections.notes) {
@@ -142,6 +157,7 @@ export class DailyNoteEnhancer {
 	}
 
 	private generateFrontmatter(dateISO: string): string {
+		const settings = this.getSettings();
 		const lines = [
 			"---",
 			`date: ${dateISO}`,
@@ -157,27 +173,25 @@ export class DailyNoteEnhancer {
 			"isha: false",
 		];
 
-		const settings = this.getSettings();
-		if (settings.ramadanEnabled) {
-			lines.push("fasting: false");
-			lines.push("tarawih: false");
+		for (const habit of settings.habits) {
+			lines.push(`${habit.id}: 0`);
 		}
 
-		for (const h of settings.habits) {
-			lines.push(`${h.id}: 0`);
-		}
+		lines.push(
+			"cssclasses:",
+			"  - hide",
+			"---",
+			"",
+		);
 
-		lines.push("cssclasses:");
-		lines.push("  - hide");
-		lines.push("---", "");
 		return lines.join("\n");
 	}
 
 	private generateTitle(dateISO: string): string {
-		const dateObj = new Date(dateISO + "T00:00:00");
-		const dayName = dateObj.toLocaleDateString("ru-RU", { weekday: "long" });
+		const dateObj = new Date(`${dateISO}T00:00:00`);
+		const dayName = dateObj.toLocaleDateString(getLocale(), { weekday: "long" });
 		const dayCapitalized = dayName.charAt(0).toUpperCase() + dayName.slice(1);
-		const formatted = dateObj.toLocaleDateString("ru-RU", {
+		const formatted = dateObj.toLocaleDateString(getLocale(), {
 			day: "numeric",
 			month: "long",
 			year: "numeric",
@@ -186,13 +200,9 @@ export class DailyNoteEnhancer {
 		return `# ${dayCapitalized}, ${formatted}\n\n`;
 	}
 
-	// ─── Навигация ──────────────────
-
 	private generateNavSection(): string {
 		return "```daily-nav\n```\n\n";
 	}
-
-	// ─── Слово дня ──────────────────
 
 	private generateWordOfDaySection(_dateISO: string): string {
 		return [
@@ -203,16 +213,14 @@ export class DailyNoteEnhancer {
 		].join("\n");
 	}
 
-	// ─── Намазы ──────────────────
-
 	private generatePrayerSection(): string {
 		return [
-			"## Намазы",
+			t("## Prayers"),
 			"",
 			"```umos-input",
 			"type: chips",
 			`properties: ${this.arr(["fajr", "dhuhr", "asr", "maghrib", "isha"])}`,
-			`labels: ${this.arr(["Фаджр", "Зухр", "Аср", "Магриб", "Иша"])}`,
+			`labels: ${this.arr(["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map((name) => t(name)))}`,
 			`icons: ${this.arr(["🌅", "☀️", "🌤️", "🌇", "🌙"])}`,
 			`colors: ${this.arr(["#e67e22", "#f1c40f", "#3498db", "#e74c3c", "#9b59b6"])}`,
 			"columns: 5",
@@ -221,23 +229,21 @@ export class DailyNoteEnhancer {
 		].join("\n");
 	}
 
-	// ─── Оценка дня ──────────────────
-
 	private generateRatingsSection(): string {
 		return [
-			"## Оценка дня",
+			t("## Daily Rating"),
 			"",
 			"```umos-input",
 			"type: rating",
 			"property: mood",
-			"label: Настроение",
+			`label: ${t("Mood")}`,
 			"max: 5",
 			"```",
 			"",
 			"```umos-input",
 			"type: rating",
 			"property: productivity",
-			"label: Продуктивность",
+			`label: ${t("Productivity")}`,
 			"max: 5",
 			"icon: ●",
 			"empty_icon: ○",
@@ -246,50 +252,37 @@ export class DailyNoteEnhancer {
 			"```umos-input",
 			"type: slider",
 			"property: sleep",
-			"label: Сон",
+			`label: ${t("Sleep")}`,
 			"min: 0",
 			"max: 14",
 			"step: 1",
-			"suffix: ч",
+			"suffix: h",
 			"style: numeric",
 			"```",
 			"",
 		].join("\n");
 	}
 
-	// ─── Привычки ──────────────────
-
 	private generateHabitsSection(): string {
 		const habits = this.getSettings().habits;
 		if (habits.length === 0) return "";
 
-		const properties = habits.map(h => h.id);
-		const labels = habits.map(h => h.name);
-		const icons = habits.map(h => h.icon);
-		const mins = habits.map(() => 0);
-		const maxes = habits.map(() => 999);
-		const steps = habits.map(() => 1);
-
-		const lines: string[] = [
-			"## Привычки",
+		return [
+			t("## Habits"),
 			"",
 			"```umos-input",
 			"type: numbers",
-			`properties: ${this.arr(properties)}`,
-			`labels: ${this.arr(labels)}`,
-			`icons: ${this.arr(icons)}`,
-			`mins: [${mins.join(", ")}]`,
-			`maxes: [${maxes.join(", ")}]`,
-			`steps: [${steps.join(", ")}]`,
+			`properties: ${this.arr(habits.map(habit => habit.id))}`,
+			`labels: ${this.arr(habits.map(habit => habit.name))}`,
+			`icons: ${this.arr(habits.map(habit => habit.icon))}`,
+			`mins: [${habits.map(() => 0).join(", ")}]`,
+			`maxes: [${habits.map(() => 999).join(", ")}]`,
+			`steps: [${habits.map(() => 1).join(", ")}]`,
 			`columns: ${habits.length}`,
 			"```",
 			"",
-		];
-
-		return lines.join("\n");
+		].join("\n");
 	}
-
-	// ─── Расписание ──────────────────
 
 	private generateScheduleSection(dateISO: string): string | null {
 		const dataStore = this.getDataStore();
@@ -299,42 +292,42 @@ export class DailyNoteEnhancer {
 		const anchorDate = this.getSettings().scheduleAnchorDate || schedule.anchorDate;
 		if (!anchorDate) return null;
 
-		const dateObj = new Date(dateISO + "T00:00:00");
+		const dateObj = new Date(`${dateISO}T00:00:00`);
 		const dayIndex = getDayOfWeekIndex(dateObj);
 		const dayKeys = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 		const dayKey = dayKeys[dayIndex];
 
 		if (dayKey === "sunday") {
-			return "## Расписание\n\n> Выходной\n\n";
+			return t("## Schedule\n\n> Day off\n\n");
 		}
 
 		const weekType = getCurrentWeekType(anchorDate, dateISO);
 		const weekData = weekType === "week1" ? schedule.week1 : schedule.week2;
 
 		if (!weekData?.[dayKey] || weekData[dayKey].length === 0) {
-			return "## Расписание\n\n> Нет пар\n\n";
+			return t("## Schedule\n\n> No classes\n\n");
 		}
 
 		const slots: ScheduleSlot[] = weekData[dayKey]
-			.filter((s: ScheduleSlot) => s.subject && s.subject.trim() !== "")
+			.filter((slot: ScheduleSlot) => slot.subject && slot.subject.trim() !== "")
 			.sort((a: ScheduleSlot, b: ScheduleSlot) => a.startTime.localeCompare(b.startTime));
 
 		if (slots.length === 0) {
-			return "## Расписание\n\n> Нет пар\n\n";
+			return t("## Schedule\n\n> No classes\n\n");
 		}
 
 		const dayNameRu = DAY_NAMES_RU[dayKey] || dayKey;
-		const weekLabel = weekType === "week1" ? "нед. 1" : "нед. 2";
+		const weekLabel = weekType === "week1" ? t("week 1") : t("week 2");
 
 		const lines: string[] = [
-			`## Расписание — ${dayNameRu} (${weekLabel})`,
+			`${t("## Schedule")} — ${t(dayNameRu)} (${weekLabel})`,
 			"",
 		];
 
 		for (const slot of slots) {
-			const typeRu = SLOT_TYPE_RU[slot.type] || slot.type;
+			const typeRu = t(SLOT_TYPE_RU[slot.type] || slot.type);
 			const parts = [`\`${slot.startTime}–${slot.endTime}\``, `**${slot.subject}**`, `*${typeRu}*`];
-			if (slot.room) parts.push(`📍 ${slot.room}`);
+			if (slot.room) parts.push(`📌 ${slot.room}`);
 			lines.push(`- ${parts.join("  ")}`);
 		}
 
@@ -342,19 +335,24 @@ export class DailyNoteEnhancer {
 		return lines.join("\n");
 	}
 
-	// ─── Задачи ──────────────────
-
 	private generateTasksSection(): string {
-		return "## Задачи\n\n\n\n";
+		return t("## Tasks\n\n\n\n");
 	}
 
-	// ─── Заметки ──────────────────
+	private generateReviewSection(): string {
+		return [
+			t("## Review"),
+			"",
+			"```daily-review",
+			"mode: daily",
+			"```",
+			"",
+		].join("\n");
+	}
 
 	private generateNotesSection(): string {
-		return "## Заметки\n\n\n\n";
+		return t("## Notes\n\n\n\n");
 	}
-
-	// ─── Helpers ──────────────────
 
 	private arr(values: string[]): string {
 		return `[${values.map(v => `"${v.replace(/"/g, '\\"')}"`).join(", ")}]`;

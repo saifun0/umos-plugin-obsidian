@@ -45,6 +45,7 @@ export class TaskService {
         base: ITaskStats;
         completedLast7: number;
         completedLast30: number;
+        activeDays: number;
         avgCompletionDays: number | null;
         streak: number;
         dailyCompleted: { date: string; count: number }[];
@@ -79,15 +80,21 @@ export class TaskService {
             checkDay.subtract(1, 'day');
         }
 
-        // Daily completed for last 30 days (for bar chart)
+        const range = this.resolveDateRange(query);
+        const chartEnd = range?.to ?? today.clone();
+        const chartStart = range?.from ?? today.clone().subtract(29, 'days');
+        const chartDays = Math.min(Math.max(chartEnd.diff(chartStart, 'days') + 1, 1), 366);
+
+        // Daily completed for the selected range (for bar chart)
         const dailyCompleted: { date: string; count: number }[] = [];
-        for (let i = 29; i >= 0; i--) {
-            const date = today.clone().subtract(i, 'days').format('YYYY-MM-DD');
+        for (let i = chartDays - 1; i >= 0; i--) {
+            const date = chartEnd.clone().subtract(i, 'days').format('YYYY-MM-DD');
             const count = doneTasks.filter(t => t.doneDate === date).length;
             dailyCompleted.push({ date, count });
         }
+        const activeDays = new Set(doneTasks.map(t => t.doneDate!)).size;
 
-        return { base, completedLast7, completedLast30, avgCompletionDays, streak, dailyCompleted };
+        return { base, completedLast7, completedLast30, activeDays, avgCompletionDays, streak, dailyCompleted };
     }
 
     private flattenTasks(tasks: Task[]): Task[] {
@@ -129,6 +136,7 @@ export class TaskService {
             if (lines.length > task.lineNumber) {
                 lines[task.lineNumber] = this.reconstructTaskString(task);
                 await this.app.vault.modify(file, lines.join('\n'));
+                this.emitTasksChanged('update', task.filePath);
             }
         } catch (e) {
             console.error(`umOS: Error updating task in ${task.filePath}`, e);
@@ -153,7 +161,7 @@ export class TaskService {
 
                 if (!file) {
                     await this.ensureParentFolder(filePath);
-                    const initial = "## Задачи\n\n";
+                    const initial = "## Tasks\n\n";
                     file = await this.app.vault.create(filePath, initial);
                 }
             } catch (e) {
@@ -178,6 +186,7 @@ export class TaskService {
             }
 
             await this.app.vault.modify(file, lines.join('\n'));
+            this.emitTasksChanged('create', filePath);
             return actualLine;
         } catch (e) {
             console.error(`umOS: Error creating task in ${filePath}`, e);
@@ -210,6 +219,7 @@ export class TaskService {
 
             lines.splice(parentLine + 1, 0, ...subtaskLines);
             await this.app.vault.modify(file, lines.join('\n'));
+            this.emitTasksChanged('subtasks', filePath);
         } catch (e) {
             console.error('umOS: Error adding subtasks', e);
         }
@@ -247,6 +257,7 @@ export class TaskService {
             if (lines.length > task.lineNumber) {
                 lines.splice(task.lineNumber, 1);
                 await this.app.vault.modify(file, lines.join('\n'));
+                this.emitTasksChanged('delete', task.filePath);
             }
         } catch (e) {
             console.error(`umOS: Error deleting task in ${task.filePath}`, e);
@@ -254,16 +265,16 @@ export class TaskService {
     }
 
     /**
-     * Find the line index to insert a new task under "## Задачи" section.
+     * Find the line index to insert a new task under "## Tasks" section.
      * Returns the index of the last task line + 1 in that section,
      * or right after the heading if no tasks exist yet.
      * Returns -1 if no such heading found.
      */
     private findTasksSectionInsertIndex(lines: string[]): number {
-        // Find "## Задачи" heading (case-insensitive for the heading level)
+        // Find "## Tasks" heading (case-insensitive for the heading level)
         let headingIdx = -1;
         for (let i = 0; i < lines.length; i++) {
-            if (/^#{1,3}\s+Задачи(\s+проекта)?\s*$/i.test(lines[i])) {
+            if (/^#{1,3}\s+Tasks(\s+projects)?\s*$/i.test(lines[i])) {
                 headingIdx = i;
                 break;
             }
@@ -342,6 +353,21 @@ export class TaskService {
             .sort((a, b) => b.count - a.count);
     }
 
+    public async getStatusStats(query: ITaskQuery): Promise<{ status: TaskStatus; count: number }[]> {
+        const tasks = await this.getTasksWithQuery({ ...query, status: undefined });
+        const flat = this.flattenTasks(tasks);
+        const order: TaskStatus[] = ['todo', 'doing', 'done', 'cancelled'];
+        const map = new Map<TaskStatus, number>();
+
+        for (const task of flat) {
+            map.set(task.status, (map.get(task.status) ?? 0) + 1);
+        }
+
+        return order
+            .map(status => ({ status, count: map.get(status) ?? 0 }))
+            .filter(entry => entry.count > 0);
+    }
+
     public async bulkUpdate(tasks: Task[], changes: Partial<Pick<Task, 'status' | 'dueDate'>>): Promise<void> {
         for (const task of tasks) {
             if (changes.status !== undefined) task.status = changes.status;
@@ -415,6 +441,7 @@ export class TaskService {
 
                 await this.app.vault.modify(file, lines.join('\n'));
                 task.status = nextStatus;
+                this.emitTasksChanged('status', task.filePath);
             }
         } catch (e) {
             console.error(`umOS: Error updating task in ${task.filePath}`, e);
@@ -474,6 +501,11 @@ export class TaskService {
 
     /** Get overdue + due today tasks for notifications */
     public async getUrgentTasks(): Promise<{ overdue: Task[]; dueToday: Task[] }> {
+        const { overdue, dueToday } = await this.getHomeTasks();
+        return { overdue, dueToday };
+    }
+
+    public async getHomeTasks(): Promise<{ overdue: Task[]; dueToday: Task[]; inProgress: Task[] }> {
         const allTasks = await this.getTasksWithQuery({});
         const flatTasks = this.flattenTasks(allTasks);
         const today = moment().startOf('day');
@@ -481,8 +513,14 @@ export class TaskService {
         const active = flatTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled');
         const overdue = active.filter(t => t.dueDate && moment(t.dueDate).isBefore(today));
         const dueToday = active.filter(t => t.dueDate && moment(t.dueDate).isSame(today, 'day'));
+        const urgentKeys = new Set(
+            [...overdue, ...dueToday].map(task => `${task.filePath}:${task.lineNumber}`)
+        );
+        const inProgress = active.filter(
+            t => t.status === 'doing' && !urgentKeys.has(`${t.filePath}:${t.lineNumber}`)
+        );
 
-        return { overdue, dueToday };
+        return { overdue, dueToday, inProgress };
     }
 
     private getFilesToScan(query: ITaskQuery): TFile[] {
@@ -590,7 +628,40 @@ export class TaskService {
             }
         }
 
+        const range = this.resolveDateRange(query);
+        if (range) {
+            filteredTasks = filteredTasks.filter(task => {
+                const rawDate = this.getTaskRangeDate(task);
+                if (!rawDate) return false;
+                const date = moment(rawDate).startOf('day');
+                return !date.isBefore(range.from, 'day') && !date.isAfter(range.to, 'day');
+            });
+        }
+
         return filteredTasks;
+    }
+
+    private resolveDateRange(query: ITaskQuery): { from: ReturnType<typeof moment>; to: ReturnType<typeof moment> } | null {
+        if (!query.dateFrom && !query.dateTo) return null;
+
+        const from = query.dateFrom ? moment(query.dateFrom).startOf('day') : moment('1900-01-01').startOf('day');
+        const to = query.dateTo ? moment(query.dateTo).startOf('day') : moment().startOf('day');
+        if (!from.isValid() || !to.isValid()) return null;
+
+        return from.isAfter(to) ? { from: to, to: from } : { from, to };
+    }
+
+    private getTaskRangeDate(task: Task): string | null {
+        return task.doneDate
+            || task.dueDate
+            || task.scheduledDate
+            || task.startDate
+            || this.extractDateFromPath(task.filePath);
+    }
+
+    private extractDateFromPath(path: string): string | null {
+        const match = path.match(/(\d{4}-\d{2}-\d{2})/);
+        return match ? match[1] : null;
     }
 
     public reconstructTaskString(task: Task): string {
@@ -611,5 +682,9 @@ export class TaskService {
         if (task.tags.length > 0) metadata += ` ${task.tags.map(t => `#${t}`).join(' ')}`;
 
         return `${indent}- ${statusMarker} ${task.description}${metadata}`;
+    }
+
+    private emitTasksChanged(action: string, path?: string): void {
+        this.plugin?.eventBus.emit('tasks:changed', { action, path });
     }
 }

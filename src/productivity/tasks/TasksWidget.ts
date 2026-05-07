@@ -103,7 +103,7 @@ export class TasksWidget extends BaseWidget {
         // Search toggle (always-on text input visible in filter panel)
         const filterToggleBtn = headerActions.createEl('button', {
             cls: `clickable-icon${this.filtersOpen ? ' is-active' : ''}`,
-            attr: { 'aria-label': 'Фильтры' },
+            attr: { 'aria-label': 'Filters' },
         });
         setIcon(filterToggleBtn, 'sliders-horizontal');
         filterToggleBtn.addEventListener('click', () => {
@@ -114,7 +114,7 @@ export class TasksWidget extends BaseWidget {
         // Selection mode toggle
         const selectBtn = headerActions.createEl('button', {
             cls: `clickable-icon${this.selectionMode ? ' is-active' : ''}`,
-            attr: { 'aria-label': 'Выбор' },
+            attr: { 'aria-label': 'Selection' },
         });
         setIcon(selectBtn, 'list-checks');
         selectBtn.addEventListener('click', () => {
@@ -124,7 +124,7 @@ export class TasksWidget extends BaseWidget {
         });
 
         // Create task button
-        const createBtn = headerActions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'Новая задача' } });
+        const createBtn = headerActions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'New Task' } });
         setIcon(createBtn, 'plus');
         createBtn.addEventListener('click', () => this.openCreateModal());
 
@@ -134,10 +134,10 @@ export class TasksWidget extends BaseWidget {
         // ── Status quick-filter bar (always visible) ─────────────────────
         const statusBar = this.containerEl.createDiv({ cls: 'umos-tasks-filter-bar' });
         const statusFilters: { key: StatusFilter; label: string }[] = [
-            { key: 'all',    label: 'Все' },
-            { key: 'active', label: 'Активные' },
-            { key: 'doing',  label: 'В процессе' },
-            { key: 'done',   label: 'Завершённые' },
+            { key: 'all',    label: 'All' },
+            { key: 'active', label: 'Active' },
+            { key: 'doing',  label: 'In Progress' },
+            { key: 'done',   label: 'Done' },
         ];
         for (const f of statusFilters) {
             const btn = statusBar.createEl('button', {
@@ -170,9 +170,9 @@ export class TasksWidget extends BaseWidget {
         // ── Empty state ─────────────────────────────────────────────────
         if (filtered.length === 0) {
             const empty = this.containerEl.createDiv({ cls: 'umos-tasks-empty' });
-            empty.innerHTML = `<span>Задачи не найдены</span>`;
+            empty.innerHTML = `<span>No tasks found</span>`;
             if (this.hasActiveExtraFilters()) {
-                const reset = empty.createEl('button', { text: 'Сбросить фильтры', cls: 'umos-tasks-filter-reset-btn' });
+                const reset = empty.createEl('button', { text: 'Reset filters', cls: 'umos-tasks-filter-reset-btn' });
                 reset.addEventListener('click', () => this.resetAllFilters());
             }
             return;
@@ -195,10 +195,10 @@ export class TasksWidget extends BaseWidget {
 
         // Search
         const searchRow = panel.createDiv({ cls: 'umos-tasks-filter-row' });
-        searchRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Поиск' });
+        searchRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Search' });
         const searchInput = searchRow.createEl('input', {
             cls: 'umos-tasks-search-input',
-            attr: { type: 'text', placeholder: 'Поиск по описанию…', value: this.searchQuery },
+            attr: { type: 'text', placeholder: 'Search by description...', value: this.searchQuery },
         }) as HTMLInputElement;
         searchInput.addEventListener('input', () => {
             this.searchQuery = searchInput.value;
@@ -208,13 +208,13 @@ export class TasksWidget extends BaseWidget {
 
         // Priority filter
         const priRow = panel.createDiv({ cls: 'umos-tasks-filter-row' });
-        priRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Приоритет' });
+        priRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Priority' });
         const priBar = priRow.createDiv({ cls: 'umos-tasks-filter-pills' });
         const priBtns: { key: PriorityFilter; label: string; dot?: string }[] = [
-            { key: 'all',    label: 'Все' },
-            { key: 'high',   label: 'Высокий',  dot: 'priority-high' },
-            { key: 'medium', label: 'Средний',   dot: 'priority-medium' },
-            { key: 'low',    label: 'Низкий',    dot: 'priority-low' },
+            { key: 'all',    label: 'All' },
+            { key: 'high',   label: 'High',  dot: 'priority-high' },
+            { key: 'medium', label: 'Medium',   dot: 'priority-medium' },
+            { key: 'low',    label: 'Low',    dot: 'priority-low' },
         ];
         for (const p of priBtns) {
             const btn = priBar.createEl('button', {
@@ -227,14 +227,14 @@ export class TasksWidget extends BaseWidget {
 
         // Due date filter
         const dueRow = panel.createDiv({ cls: 'umos-tasks-filter-row' });
-        dueRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Срок' });
+        dueRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Due' });
         const dueBar = dueRow.createDiv({ cls: 'umos-tasks-filter-pills' });
         const dueBtns: { key: DueFilter; label: string }[] = [
-            { key: 'all',     label: 'Все' },
-            { key: 'today',   label: 'Сегодня' },
-            { key: 'overdue', label: '🔥 Просрочено' },
-            { key: 'week',    label: 'Эта неделя' },
-            { key: 'no-date', label: 'Без даты' },
+            { key: 'all',     label: 'All' },
+            { key: 'today',   label: 'Today' },
+            { key: 'overdue', label: '🔥 Overdue' },
+            { key: 'week',    label: 'This week' },
+            { key: 'no-date', label: 'No date' },
         ];
         for (const d of dueBtns) {
             const btn = dueBar.createEl('button', {
@@ -248,11 +248,11 @@ export class TasksWidget extends BaseWidget {
         const allTags = this.collectAllTags(this.allTasks);
         if (allTags.length > 0) {
             const tagRow = panel.createDiv({ cls: 'umos-tasks-filter-row' });
-            tagRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Тег' });
+            tagRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Tag' });
             const tagBar = tagRow.createDiv({ cls: 'umos-tasks-filter-pills umos-tasks-filter-tags' });
 
             const allTagBtn = tagBar.createEl('button', {
-                text: 'Все',
+                text: 'All',
                 cls: `umos-tasks-filter-pill${this.activeTagFilter === '' ? ' is-active' : ''}`,
             });
             allTagBtn.addEventListener('click', () => { this.activeTagFilter = ''; this.render(); });
@@ -271,13 +271,13 @@ export class TasksWidget extends BaseWidget {
 
         // Sort
         const sortRow = panel.createDiv({ cls: 'umos-tasks-filter-row' });
-        sortRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Сортировка' });
+        sortRow.createSpan({ cls: 'umos-tasks-filter-row-label', text: 'Sort' });
         const sortBar = sortRow.createDiv({ cls: 'umos-tasks-filter-pills' });
         const sortBtns: { field: SortField; label: string }[] = [
-            { field: 'priority', label: 'Приоритет' },
-            { field: 'dueDate',  label: 'Дата' },
-            { field: 'created',  label: 'Создание' },
-            { field: 'status',   label: 'Статус' },
+            { field: 'priority', label: 'Priority' },
+            { field: 'dueDate',  label: 'Date' },
+            { field: 'created',  label: 'Created' },
+            { field: 'status',   label: 'Status' },
         ];
         for (const s of sortBtns) {
             const isActive = this.sortField === s.field;
@@ -302,7 +302,7 @@ export class TasksWidget extends BaseWidget {
         // Reset button
         if (this.hasActiveExtraFilters()) {
             const resetRow = panel.createDiv({ cls: 'umos-tasks-filter-reset-row' });
-            const resetBtn = resetRow.createEl('button', { text: '✕ Сбросить фильтры', cls: 'umos-tasks-filter-reset-btn' });
+            const resetBtn = resetRow.createEl('button', { text: '✕ Reset filters', cls: 'umos-tasks-filter-reset-btn' });
             resetBtn.addEventListener('click', () => this.resetAllFilters());
         }
     }
@@ -320,11 +320,11 @@ export class TasksWidget extends BaseWidget {
         };
 
         if (this.priorityFilter !== 'all') {
-            const labels: Record<string, string> = { high: '🔴 Высокий', medium: '🟡 Средний', low: '🟢 Низкий' };
+            const labels: Record<string, string> = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low' };
             add(labels[this.priorityFilter] ?? this.priorityFilter, () => { this.priorityFilter = 'all'; });
         }
         if (this.dueFilter !== 'all') {
-            const labels: Record<string, string> = { today: 'Сегодня', overdue: '🔥 Просрочено', week: 'Эта неделя', 'no-date': 'Без даты' };
+            const labels: Record<string, string> = { today: 'Today', overdue: '🔥 Overdue', week: 'This week', 'no-date': 'No date' };
             add(labels[this.dueFilter] ?? this.dueFilter, () => { this.dueFilter = 'all'; });
         }
         if (this.activeTagFilter) {
@@ -416,12 +416,17 @@ export class TasksWidget extends BaseWidget {
     // ═════════════════════════════════════════════════════════════════════
 
     private renderStatsSummary(container: HTMLElement, all: Task[], filtered: Task[]): void {
-        const total   = all.filter(t => t.status !== 'cancelled').length;
-        const done    = all.filter(t => t.status === 'done').length;
-        const doing   = all.filter(t => t.status === 'doing').length;
-        const overdue = all.filter(t =>
+        const today = moment().startOf('day');
+        const weekStart = today.clone().subtract(6, 'days');
+        const allInRange = all.filter(t => this.isTaskInSummaryRange(t, weekStart, today));
+        const filteredInRange = filtered.filter(t => this.isTaskInSummaryRange(t, weekStart, today));
+
+        const total   = allInRange.filter(t => t.status !== 'cancelled').length;
+        const done    = allInRange.filter(t => t.status === 'done').length;
+        const doing   = allInRange.filter(t => t.status === 'doing').length;
+        const overdue = allInRange.filter(t =>
             t.status !== 'done' && t.status !== 'cancelled' &&
-            t.dueDate && moment(t.dueDate).isBefore(moment().startOf('day'))
+            t.dueDate && moment(t.dueDate).isBefore(today)
         ).length;
 
         if (total === 0) return;
@@ -436,10 +441,10 @@ export class TasksWidget extends BaseWidget {
             s.createSpan({ cls: 'umos-tasks-stat-label', text: label });
         };
 
-        addStat('📋', filtered.length !== all.length ? filtered.length : total, 'задач', 'umos-tasks-stat--total');
-        addStat('▶', doing, 'в работе', 'umos-tasks-stat--doing');
-        addStat('✅', done, 'готово', 'umos-tasks-stat--done');
-        if (overdue > 0) addStat('🔥', overdue, 'просрочено', 'umos-tasks-stat--overdue');
+        addStat('📋', filtered.length !== all.length ? filteredInRange.length : total, 'tasks', 'umos-tasks-stat--total');
+        addStat('▶', doing, 'active', 'umos-tasks-stat--doing');
+        addStat('✅', done, 'done', 'umos-tasks-stat--done');
+        if (overdue > 0) addStat('🔥', overdue, 'overdue', 'umos-tasks-stat--overdue');
 
         if (done > 0 && total > 0) {
             const pct = Math.round((done / total) * 100);
@@ -449,15 +454,36 @@ export class TasksWidget extends BaseWidget {
         }
     }
 
+    private isTaskInSummaryRange(task: Task, from: ReturnType<typeof moment>, to: ReturnType<typeof moment>): boolean {
+        const rawDate = this.getTaskSummaryDate(task);
+        if (!rawDate) return false;
+
+        const date = moment(rawDate, 'YYYY-MM-DD', true).startOf('day');
+        return date.isValid() && !date.isBefore(from, 'day') && !date.isAfter(to, 'day');
+    }
+
+    private getTaskSummaryDate(task: Task): string | null {
+        return task.doneDate
+            || task.dueDate
+            || task.scheduledDate
+            || task.startDate
+            || this.extractDateFromPath(task.filePath);
+    }
+
+    private extractDateFromPath(path: string): string | null {
+        const match = path.match(/(\d{4}-\d{2}-\d{2})/);
+        return match ? match[1] : null;
+    }
+
     // ═════════════════════════════════════════════════════════════════════
     //  BULK BAR
     // ═════════════════════════════════════════════════════════════════════
 
     private renderBulkBar(container: HTMLElement) {
         const bar = container.createDiv({ cls: 'umos-tasks-bulk-bar' });
-        bar.createSpan({ text: `Выбрано: ${this.selectedTasks.size}`, cls: 'umos-tasks-bulk-count' });
+        bar.createSpan({ text: `Selected: ${this.selectedTasks.size}`, cls: 'umos-tasks-bulk-count' });
 
-        const completeBtn = bar.createEl('button', { text: 'Завершить', cls: 'umos-tasks-bulk-btn' });
+        const completeBtn = bar.createEl('button', { text: 'Complete', cls: 'umos-tasks-bulk-btn' });
         completeBtn.addEventListener('click', async () => {
             if (this.selectedTasks.size === 0) return;
             await this.service.bulkUpdate([...this.selectedTasks], { status: 'done' });
@@ -466,7 +492,7 @@ export class TasksWidget extends BaseWidget {
             setTimeout(() => this.render(), 300);
         });
 
-        const postponeBtn = bar.createEl('button', { text: 'На завтра', cls: 'umos-tasks-bulk-btn' });
+        const postponeBtn = bar.createEl('button', { text: 'Tomorrow', cls: 'umos-tasks-bulk-btn' });
         postponeBtn.addEventListener('click', async () => {
             if (this.selectedTasks.size === 0) return;
             const tomorrow = moment().add(1, 'day').format('YYYY-MM-DD');
@@ -509,7 +535,7 @@ export class TasksWidget extends BaseWidget {
                 cb.addEventListener('change', () => {
                     if (cb.checked) this.selectedTasks.add(task); else this.selectedTasks.delete(task);
                     const countEl = this.containerEl.querySelector('.umos-tasks-bulk-count');
-                    if (countEl) countEl.textContent = `Выбрано: ${this.selectedTasks.size}`;
+                    if (countEl) countEl.textContent = `Selected: ${this.selectedTasks.size}`;
                 });
             }
 
@@ -540,9 +566,9 @@ export class TasksWidget extends BaseWidget {
 
             // Status badge
             if (task.status === 'doing') {
-                mainRow.createSpan({ cls: 'umos-task-status-badge is-doing', text: 'в процессе' });
+                mainRow.createSpan({ cls: 'umos-task-status-badge is-doing', text: 'in progress' });
             } else if (task.status === 'cancelled') {
-                mainRow.createSpan({ cls: 'umos-task-status-badge is-cancelled', text: 'отменено' });
+                mainRow.createSpan({ cls: 'umos-task-status-badge is-cancelled', text: 'cancelled' });
             }
 
             // Highlight search match in description
@@ -594,12 +620,12 @@ export class TasksWidget extends BaseWidget {
                 const meta = content.createDiv({ cls: 'umos-task-metadata' });
 
                 if (task.dueDate) {
-                    meta.createSpan({ cls: `umos-task-date-badge${isOverdue ? ' is-overdue' : ''}`, text: `срок: ${task.dueDate}` });
+                    meta.createSpan({ cls: `umos-task-date-badge${isOverdue ? ' is-overdue' : ''}`, text: `due: ${task.dueDate}` });
                 }
-                if (task.scheduledDate) meta.createSpan({ cls: 'umos-task-date-badge', text: `запланировано: ${task.scheduledDate}` });
-                if (task.startDate)     meta.createSpan({ cls: 'umos-task-date-badge', text: `начало: ${task.startDate}` });
+                if (task.scheduledDate) meta.createSpan({ cls: 'umos-task-date-badge', text: `scheduled: ${task.scheduledDate}` });
+                if (task.startDate)     meta.createSpan({ cls: 'umos-task-date-badge', text: `start: ${task.startDate}` });
                 if (task.doneDate)      meta.createSpan({ cls: 'umos-task-date-badge is-done', text: `✅ ${task.doneDate}` });
-                if (task.recurrence)    meta.createSpan({ cls: 'umos-task-date-badge is-rec', text: `повтор: ${task.recurrence}` });
+                if (task.recurrence)    meta.createSpan({ cls: 'umos-task-date-badge is-rec', text: `repeat: ${task.recurrence}` });
 
                 if (task.tags.length > 0) {
                     const tagsSpan = meta.createSpan({ cls: 'umos-task-tags' });
@@ -647,18 +673,18 @@ export class TasksWidget extends BaseWidget {
                     // Text label
                     const labelEl = badge.createSpan({ cls: 'umos-task-progress-badge-label' });
                     if (isLate) {
-                        labelEl.textContent = `🔥 Просрочено на ${Math.abs(daysLeft)} дн.`;
+                        labelEl.textContent = `🔥 Overdue by ${Math.abs(daysLeft)} d`;
                     } else if (daysLeft === 0) {
-                        labelEl.textContent = `⚡ Срок сегодня`;
+                        labelEl.textContent = `⚡ Due today`;
                     } else {
-                        labelEl.textContent = `⏱ ${daysLeft} дн. · ${pctRound}%`;
+                        labelEl.textContent = `⏱ ${daysLeft} d · ${pctRound}%`;
                     }
                 }
             }
 
             // Controls
             const ctrl = self.createDiv({ cls: 'umos-task-controls' });
-            const editBtn = ctrl.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'Редактировать' } });
+            const editBtn = ctrl.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'Edit' } });
             setIcon(editBtn, 'pencil');
             editBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -677,11 +703,11 @@ export class TasksWidget extends BaseWidget {
                 modal.open();
             });
 
-            const delBtn = ctrl.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'Удалить' } });
+            const delBtn = ctrl.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'Delete' } });
             setIcon(delBtn, 'trash');
             delBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                if (!window.confirm('Удалить задачу?')) return;
+                if (!window.confirm('Delete task?')) return;
                 this.isUpdating = true;
                 await this.service.deleteTask(task);
                 setTimeout(() => { this.isUpdating = false; this.render(); }, 300);
@@ -786,7 +812,7 @@ export class TasksWidget extends BaseWidget {
 
         const modal = new TaskEditorModal(this.app, newTask, async (task, subtasks) => {
             const filePath = this.resolveCreateTargetPath();
-            if (!filePath) { new Notice('Не удалось определить файл для создания задачи'); return; }
+            if (!filePath) { new Notice('Could not determine the file for creating a task'); return; }
             const lineNum = await this.service.createTask(task, filePath);
             if (subtasks.length > 0) {
                 await this.service.addSubtasksAfterLine(filePath, lineNum, task.indentation, subtasks);

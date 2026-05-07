@@ -11,6 +11,7 @@ import { NumberInput, NumberInputConfig } from "./NumberInput";
 import { DateInput, DateInputConfig } from "./DateInput";
 import { ChipInput, ChipInputConfig } from "./ChipInput";
 import { createErrorMessage } from "../utils/dom";
+import { CommandInputWidget } from "./CommandInputWidget";
 
 export class InputWidgetManager {
 	private plugin: UmOSPlugin;
@@ -115,27 +116,28 @@ export class InputWidgetManager {
 			console.error("umOS: parse failed:", e);
 			createErrorMessage(
 				el,
-				`Ошибка парсинга конфигурации: ${e instanceof Error ? e.message : String(e)}`
+				`Configuration parse error: ${e instanceof Error ? e.message : String(e)}`
 			);
 			return;
 		}
 
 		const type = config.type as string;
 		if (!type) {
-			createErrorMessage(el, "Не указан тип виджета (type)");
+			createErrorMessage(el, "Widget type is not set (type)");
 			return;
 		}
 
 		const filePath = ctx.sourcePath;
 		const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
 		if (!(file instanceof TFile)) {
-			createErrorMessage(el, "Файл не найден");
+			createErrorMessage(el, "File not found");
 			return;
 		}
 
 		const container = el.createDiv({ cls: "umos-widget-container" });
 		container.setAttribute("contenteditable", "false");
 		this.applySizeClass(container, config);
+		this.plugin.eventBus.recordWidgetRender("umos-input");
 
 		let widget: MarkdownRenderChild | null = null;
 
@@ -179,8 +181,18 @@ export class InputWidgetManager {
 			case "date":
 				widget = this.createDate(container, config, file);
 				break;
+			case "command":
+				widget = new CommandInputWidget(container, this.plugin, {
+					placeholder: String(config.placeholder || config.command_placeholder || ""),
+					target: typeof config.target === "string" ? config.target : undefined,
+					create_in: typeof config.create_in === "string" ? config.create_in : undefined,
+					file: typeof config.file === "string" ? config.file : undefined,
+					help: typeof config.help === "boolean" || typeof config.help === "string" ? config.help : undefined,
+					history: typeof config.history === "boolean" || typeof config.history === "string" ? config.history : undefined,
+				}, ctx.sourcePath);
+				break;
 			default:
-				createErrorMessage(container, `Неизвестный тип виджета: ${type}`);
+				createErrorMessage(container, `Unknown widget type: ${type}`);
 				return;
 		}
 
@@ -217,7 +229,7 @@ export class InputWidgetManager {
 		const icons = Array.isArray(iconsRaw) ? iconsRaw.map(String) : [];
 
 		if (properties.length === 0) {
-			createErrorMessage(container, "Для type: toggles нужен массив properties");
+			createErrorMessage(container, "type: toggles requires a properties array");
 			return;
 		}
 
@@ -269,7 +281,7 @@ export class InputWidgetManager {
 		const colors = Array.isArray(colorsRaw) ? colorsRaw.map(String) : [];
 
 		if (properties.length === 0) {
-			createErrorMessage(container, "Для type: chips нужен массив properties");
+			createErrorMessage(container, "type: chips requires a properties array");
 			return;
 		}
 
@@ -418,7 +430,7 @@ export class InputWidgetManager {
 		const suffixes = Array.isArray(config.suffixes) ? config.suffixes.map(String) : [];
 
 		if (properties.length === 0) {
-			createErrorMessage(container, "Для type: numbers нужен массив properties");
+			createErrorMessage(container, "type: numbers requires a properties array");
 			return;
 		}
 
@@ -458,7 +470,7 @@ export class InputWidgetManager {
 		const emptyIcons = Array.isArray(config.empty_icons) ? config.empty_icons.map(String) : [];
 
 		if (properties.length === 0) {
-			createErrorMessage(container, "Для type: ratings нужен массив properties");
+			createErrorMessage(container, "type: ratings requires a properties array");
 			return;
 		}
 

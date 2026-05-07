@@ -1,16 +1,16 @@
-import { App, TFile, TFolder, Notice, Modal } from "obsidian";
+import { App, TFile, TFolder, Notice, Modal, setIcon } from "obsidian";
 import { EventBus } from "../EventBus";
 import { UmOSSettings } from "../settings/Settings";
 import { createElement } from "../utils/dom";
 import { BaseWidget } from "../core/BaseWidget";
 
-// ── Конфигурация виджета ────────────────────────
+// ──   ────────────────────────
 
 export interface ProjectGalleryConfig {
 	style: "grid" | "list";
 }
 
-// ── Статусы проекта ─────────────────────────────
+// ── Status projects ─────────────────────────────
 
 interface StatusMeta { label: string; cls: string; icon: string; color: string }
 
@@ -34,11 +34,11 @@ const STATUS_NORMALIZE: Record<string, string> = {
 };
 
 const STATUS_DISPLAY: Record<string, StatusMeta> = {
-	"plan":      { label: "В планах",  cls: "umos-pg-s-plan",      icon: "📋", color: "#95a5a6" },
-	"active":    { label: "В работе",  cls: "umos-pg-s-active",    icon: "▶️",  color: "#3498db" },
-	"done":      { label: "Завершён",  cls: "umos-pg-s-done",      icon: "✅", color: "#27ae60" },
-	"cancelled": { label: "Отменён",   cls: "umos-pg-s-cancelled", icon: "⛔", color: "#e74c3c" },
-	"on-hold":   { label: "На паузе",  cls: "umos-pg-s-hold",      icon: "⏸️",  color: "#f39c12" },
+	"plan":      { label: "Planned",  cls: "umos-pg-s-plan",      icon: "📋", color: "#95a5a6" },
+	"active":    { label: "Active",  cls: "umos-pg-s-active",    icon: "▶️",  color: "#3498db" },
+	"done":      { label: "Done",  cls: "umos-pg-s-done",      icon: "✅", color: "#27ae60" },
+	"cancelled": { label: "Cancelled",   cls: "umos-pg-s-cancelled", icon: "⛔", color: "#e74c3c" },
+	"on-hold":   { label: "On Hold",  cls: "umos-pg-s-hold",      icon: "⏸️",  color: "#f39c12" },
 };
 
 // Canonical raw values written to frontmatter
@@ -55,15 +55,15 @@ const STATUS_CYCLE = ["plan", "active", "on-hold", "done"];
 
 const ALL_STATUSES = Object.keys(STATUS_DISPLAY);
 
-// ── Приоритеты ──────────────────────────────────
+// ── Priority ──────────────────────────────────
 
 const PRIORITY_DISPLAY: Record<string, { label: string; cls: string; icon: string }> = {
-	"high":   { label: "Высокий", cls: "umos-pg-p-high",   icon: "🔴" },
-	"medium": { label: "Средний", cls: "umos-pg-p-medium", icon: "🟡" },
-	"low":    { label: "Низкий",  cls: "umos-pg-p-low",    icon: "🟢" },
+	"high":   { label: "High", cls: "umos-pg-p-high",   icon: "🔴" },
+	"medium": { label: "Medium", cls: "umos-pg-p-medium", icon: "🟡" },
+	"low":    { label: "Low",  cls: "umos-pg-p-low",    icon: "🟢" },
 };
 
-// ── Карточка проекта ────────────────────────────
+// ── Card projects ────────────────────────────
 
 interface ProjectCard {
 	title: string;
@@ -83,7 +83,7 @@ interface ProjectCard {
 	mtime: number;
 }
 
-// ── Шаблон новой заметки проекта ────────────────
+// ──    projects ────────────────
 
 function projectTemplate(title: string): string {
 	const today = new Date().toISOString().slice(0, 10);
@@ -104,76 +104,76 @@ function projectTemplate(title: string): string {
 		"",
 		`# 🚀 ${title}`,
 		"",
-		"## Информация",
+		"## Information",
 		"",
 		"```umos-input",
 		"type: select",
 		"property: status",
-		"label: Статус",
+		"label: Status",
 		"style: pills",
 		'options: ["📋 plan", "▶️ active", "✅ done", "⛔ cancelled", "⏸️ on-hold"]',
-		'labels: ["В планах", "В работе", "Завершён", "Отменён", "На паузе"]',
+		'labels: ["Planned", "Active", "Done", "Cancelled", "On Hold"]',
 		'colors: ["#95a5a6", "#3498db", "#27ae60", "#e74c3c", "#f39c12"]',
 		"```",
 		"",
 		"```umos-input",
 		"type: select",
 		"property: priority",
-		"label: Приоритет",
+		"label: Priority",
 		"style: pills",
 		'options: ["high", "medium", "low"]',
-		'labels: ["Высокий", "Средний", "Низкий"]',
+		'labels: ["High", "Medium", "Low"]',
 		'colors: ["#e74c3c", "#f39c12", "#27ae60"]',
 		"```",
 		"",
 		"```umos-input",
 		"type: date",
 		"property: deadline",
-		"label: Дедлайн",
+		"label: Deadline",
 		"```",
 		"",
 		"```umos-input",
 		"type: date",
 		"property: start_date",
-		"label: Дата начала",
+		"label: Start Date",
 		"```",
 		"",
 		"```umos-input",
 		"type: text",
 		"property: description",
-		"label: Описание",
-		"placeholder: Краткое описание проекта...",
+		"label: Description",
+		"placeholder: Short project description...",
 		"multiline: true",
 		"```",
 		"",
 		"```umos-input",
 		"type: text",
 		"property: cover_url",
-		"label: Обложка (URL)",
+		"label: Cover (URL)",
 		"placeholder: https://...",
 		"```",
 		"",
 		"---",
 		"",
-		"## Задачи проекта",
+		"## Project Tasks",
 		"",
 		"```tasks-widget",
 		`tag: projectTasks/${slug}`,
 		"target: current",
-		`title: Задачи проекта`,
+		`title: Project Tasks`,
 		"```",
 		"",
-		`- [ ] Первая задача #projectTasks/${slug}`,
+		`- [ ] First task #projectTasks/${slug}`,
 		"",
 		"---",
 		"",
-		"## Заметки",
+		"## Notes",
 		"",
 	];
 	return lines.join("\n");
 }
 
-// ── Подсчёт задач (чекбоксов) в файлах папки ───
+// ──  tasks ()    ───
 
 function countTasksInFolder(app: App, folder: TFolder): { total: number; done: number } {
 	let total = 0;
@@ -197,7 +197,7 @@ function countTasksInFolder(app: App, folder: TFolder): { total: number; done: n
 	return { total, done };
 }
 
-// ── Дни до дедлайна ────────────────────────────
+// ──    ────────────────────────────
 
 function daysUntil(dateStr: string): number {
 	if (!dateStr) return Infinity;
@@ -211,12 +211,12 @@ function daysUntil(dateStr: string): number {
 
 function formatDeadline(days: number): string {
 	if (days === Infinity || days === -Infinity) return "";
-	if (days < 0)  return `просрочено на ${Math.abs(days)} дн.`;
-	if (days === 0) return "сегодня!";
-	if (days === 1) return "завтра";
-	if (days <= 7)  return `через ${days} дн.`;
-	if (days <= 30) return `через ${Math.ceil(days / 7)} нед.`;
-	return `через ${Math.ceil(days / 30)} мес.`;
+	if (days < 0)  return `overdue by ${Math.abs(days)} d`;
+	if (days === 0) return "today!";
+	if (days === 1) return "tomorrow";
+	if (days <= 7)  return `in ${days} d`;
+	if (days <= 30) return `in ${Math.ceil(days / 7)} wk`;
+	return `in ${Math.ceil(days / 30)} mo`;
 }
 
 // ── SVG ring helper ─────────────────────────────
@@ -260,7 +260,7 @@ function renderMiniRing(parent: HTMLElement, percent: number, color: string, siz
 	createElement("div", { cls: "umos-pg-ring-label", text: label,                      parent: container });
 }
 
-// ── Виджет ──────────────────────────────────────
+// ──  ──────────────────────────────────────
 
 export class ProjectGallery extends BaseWidget {
 	private config: ProjectGalleryConfig;
@@ -396,7 +396,7 @@ export class ProjectGallery extends BaseWidget {
 		this.emptyEl = createElement("div", { cls: "umos-pg-empty", parent: wrapper });
 		this.emptyEl.style.display = "none";
 		createElement("div", { cls: "umos-pg-empty-icon", text: "🔍", parent: this.emptyEl });
-		createElement("div", { cls: "umos-pg-empty-text", text: "Нет проектов", parent: this.emptyEl });
+		createElement("div", { cls: "umos-pg-empty-text", text: "No projects", parent: this.emptyEl });
 
 		this.filterAndRender();
 	}
@@ -419,86 +419,131 @@ export class ProjectGallery extends BaseWidget {
 		const overdue    = all.filter(c =>
 			c.deadlineDays < 0 && c.nStatus !== "done" && c.nStatus !== "cancelled",
 		).length;
+		const nextDeadline = all
+			.filter(c =>
+				c.deadlineDays !== Infinity &&
+				c.deadlineDays >= 0 &&
+				c.nStatus !== "done" &&
+				c.nStatus !== "cancelled",
+			)
+			.sort((a, b) => a.deadlineDays - b.deadlineDays)[0] ?? null;
+		const activeWork = cnt.active + cnt.plan + cnt["on-hold"];
+		const distItems = ALL_STATUSES
+			.map(key => ({ key, count: cnt[key as keyof typeof cnt], ...STATUS_DISPLAY[key] }))
+			.filter(d => d.count > 0);
 
-		const block = createElement("div", { cls: "umos-pg-stats", parent });
+		const block = createElement("div", { cls: "umos-pg-dashboard", parent });
+		const main = createElement("div", { cls: "umos-pg-dashboard-main", parent: block });
 
-		// ── Status distribution bar ──
-		if (all.length > 0) {
-			const distItems = [
-				{ key: "active",    count: cnt.active,          color: "#3498db", label: "В работе"  },
-				{ key: "plan",      count: cnt.plan,            color: "#95a5a6", label: "В планах"  },
-				{ key: "done",      count: cnt.done,            color: "#27ae60", label: "Завершено" },
-				{ key: "on-hold",   count: cnt["on-hold"],      color: "#f39c12", label: "На паузе"  },
-				{ key: "cancelled", count: cnt.cancelled,       color: "#e74c3c", label: "Отменено"  },
-			].filter(d => d.count > 0);
+		const head = createElement("div", { cls: "umos-pg-dashboard-head", parent: main });
+		const titleWrap = createElement("div", { cls: "umos-pg-dashboard-title-wrap", parent: head });
+		createElement("div", { cls: "umos-pg-dashboard-kicker", text: "Overview", parent: titleWrap });
+		createElement("div", { cls: "umos-pg-dashboard-title", text: `${all.length} ${this.pluralizeRu(all.length, "project", "projects", "projects")}`, parent: titleWrap });
+		createElement("div", { cls: "umos-pg-dashboard-percent", text: `${Math.round(projPct)}%`, parent: head });
 
-			const bar = createElement("div", { cls: "umos-pg-dist-bar", parent: block });
+		const progressMeta = createElement("div", { cls: "umos-pg-dashboard-meta", parent: main });
+		createElement("span", { text: `${cnt.done} done`, parent: progressMeta });
+		createElement("span", { text: `${activeWork} active`, parent: progressMeta });
+		createElement("span", { text: `${doneTasks}/${totalTasks} tasks`, parent: progressMeta });
+
+		const statusBar = createElement("div", { cls: "umos-pg-dashboard-statusbar", parent: main });
+		if (all.length === 0) {
+			createElement("div", { cls: "umos-pg-dashboard-statusbar-empty", parent: statusBar });
+		} else {
 			for (const d of distItems) {
-				const seg = createElement("div", { cls: "umos-pg-dist-seg", parent: bar });
-				seg.style.width      = `${(d.count / all.length) * 100}%`;
-				seg.style.background = d.color;
+				const seg = createElement("div", { cls: "umos-pg-dashboard-status-seg", parent: statusBar });
+				seg.style.width = `${Math.max((d.count / all.length) * 100, 3)}%`;
+				seg.style.setProperty("--pg-status-color", d.color);
 				seg.title = `${d.label}: ${d.count}`;
 			}
-
-			const legend = createElement("div", { cls: "umos-pg-dist-legend", parent: block });
-			for (const d of distItems) {
-				const item = createElement("div", { cls: "umos-pg-dist-item", parent: legend });
-				const dot  = createElement("span", { cls: "umos-pg-dist-dot",   parent: item });
-				dot.style.background = d.color;
-				createElement("b",    { cls: "umos-pg-dist-count", text: String(d.count), parent: item });
-				createElement("span", { cls: "umos-pg-dist-name",  text: d.label,         parent: item });
-			}
 		}
 
-		createElement("div", { cls: "umos-pg-stats-sep", parent: block });
-
-		// ── Rings + compact key stats ──
-		const metricsRow = createElement("div", { cls: "umos-pg-metrics-row", parent: block });
-
-		renderMiniRing(metricsRow, projPct,  "var(--umos-success)", 72, "Проектов");
-		renderMiniRing(metricsRow, tasksPct, "var(--umos-accent)",  72, "Задач");
-
-		createElement("div", { cls: "umos-pg-metrics-divider", parent: metricsRow });
-
-		const keyStats = createElement("div", { cls: "umos-pg-key-stats", parent: metricsRow });
-		const ksItems = [
-			{ v: String(all.length),   l: "Всего",      icon: "📦", alert: false },
-			{ v: String(cnt.active),   l: "В работе",   icon: "▶️",  alert: false },
-			{ v: String(overdue),      l: "Просрочено", icon: "🔥", alert: overdue > 0 },
-		];
-		for (const s of ksItems) {
-			const card = createElement("div", {
-				cls:    `umos-pg-ks-card${s.alert ? " is-alert" : ""}`,
-				parent: keyStats,
+		const legend = createElement("div", { cls: "umos-pg-dashboard-legend", parent: main });
+		for (const d of distItems) {
+			const item = createElement("button", { cls: "umos-pg-dashboard-chip", parent: legend });
+			item.style.setProperty("--pg-status-color", d.color);
+			item.addEventListener("click", () => {
+				this.filterStatus = d.key;
+				this.render();
 			});
-			createElement("div", { cls: "umos-pg-ks-val",   text: s.v,              parent: card });
-			createElement("div", { cls: "umos-pg-ks-label", text: `${s.icon} ${s.l}`, parent: card });
+			createElement("span", { cls: "umos-pg-dashboard-dot", parent: item });
+			createElement("b", { text: String(d.count), parent: item });
+			createElement("span", { text: d.label, parent: item });
 		}
+
+		const stats = createElement("div", { cls: "umos-pg-dashboard-stats", parent: block });
+		this.renderDashboardStat(stats, "play", String(cnt.active), "active");
+		this.renderDashboardStat(stats, "clock-3", String(cnt.plan), "planned");
+		this.renderDashboardStat(stats, "list-checks", `${Math.round(tasksPct)}%`, "tasks");
+		if (overdue > 0) {
+			this.renderDashboardStat(stats, "flame", String(overdue), "overdue", "danger");
+		} else {
+			this.renderDashboardStat(
+				stats,
+				"calendar-days",
+				nextDeadline ? formatDeadline(nextDeadline.deadlineDays) : "none",
+				"nearest deadline",
+				nextDeadline && nextDeadline.deadlineDays <= 3 ? "warning" : "",
+			);
+		}
+	}
+
+	private renderDashboardStat(parent: HTMLElement, icon: string, value: string, label: string, tone = ""): void {
+		const card = createElement("div", { cls: `umos-pg-dashboard-stat${tone ? ` is-${tone}` : ""}`, parent });
+		const iconEl = createElement("span", { cls: "umos-pg-dashboard-stat-icon", parent: card });
+		setIcon(iconEl, icon);
+		const text = createElement("div", { cls: "umos-pg-dashboard-stat-text", parent: card });
+		createElement("div", { cls: "umos-pg-dashboard-stat-value", text: value, parent: text });
+		createElement("div", { cls: "umos-pg-dashboard-stat-label", text: label, parent: text });
+	}
+
+	private pluralizeRu(value: number, one: string, few: string, many: string): string {
+		const abs = Math.abs(value);
+		const mod10 = abs % 10;
+		const mod100 = abs % 100;
+		if (mod10 === 1 && mod100 !== 11) return one;
+		if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+		return many;
 	}
 
 	// ── Filters ─────────────────────────────────
 
 	private renderFilters(parent: HTMLElement): void {
-		const bar = createElement("div", { cls: "umos-pg-filters-bar", parent });
+		const bar = createElement("div", { cls: "umos-pg-filter-panel", parent });
 
 		// ── Search ──
-		const searchWrap = createElement("div", { cls: "umos-pg-search-wrap", parent: bar });
-		createElement("span", { cls: "umos-pg-search-icon", text: "🔍", parent: searchWrap });
+		const topRow = createElement("div", { cls: "umos-pg-filter-top", parent: bar });
+		const searchWrap = createElement("div", { cls: "umos-pg-search-wrap", parent: topRow });
+		const searchIcon = createElement("span", { cls: "umos-pg-search-icon", parent: searchWrap });
+		setIcon(searchIcon, "search");
 		const searchInput = createElement("input", { cls: "umos-pg-search-input", parent: searchWrap });
 		searchInput.type        = "text";
-		searchInput.placeholder = "Поиск проектов...";
+		searchInput.placeholder = "Search projects...";
 		searchInput.value       = this.filterSearch;
 		searchInput.addEventListener("input", () => {
 			this.filterSearch = searchInput.value;
 			this.filterAndRender();
 		});
 
+		const topActions = createElement("div", { cls: "umos-pg-filter-actions", parent: topRow });
+		const addBtn = createElement("button", {
+			cls: "umos-pg-add-btn",
+			attr: { "aria-label": "New Project" },
+			parent: topActions,
+		});
+		const addIcon = createElement("span", { cls: "umos-pg-add-btn-icon", parent: addBtn });
+		setIcon(addIcon, "plus");
+		createElement("span", { cls: "umos-pg-add-btn-text", text: "New Project", parent: addBtn });
+		addBtn.addEventListener("click", () => this.openAddModal());
+
+		this.filterCountEl = createElement("div", { cls: "umos-pg-filter-count", parent: topActions });
+
 		// ── Status pills ──
 		const pillsRow = createElement("div", { cls: "umos-pg-pills-row", parent: bar });
 
 		const allPill = createElement("button", {
 			cls:    `umos-pg-pill${this.filterStatus === "all" ? " is-active" : ""}`,
-			text:   "Все",
+			text:   "All",
 			parent: pillsRow,
 		});
 		allPill.addEventListener("click", () => {
@@ -524,13 +569,13 @@ export class ProjectGallery extends BaseWidget {
 			});
 		}
 
-		// ── Row 2: priority + sort + add btn + count ──
-		const row2 = createElement("div", { cls: "umos-pg-filters-row2", parent: bar });
+		// ── Row 2: priority + sort ──
+		const row2 = createElement("div", { cls: "umos-pg-filter-controls", parent: bar });
 
 		const prioGroup = createElement("div", { cls: "umos-pg-select-group", parent: row2 });
-		createElement("label", { cls: "umos-pg-select-label", text: "Приоритет", parent: prioGroup });
+		createElement("label", { cls: "umos-pg-select-label", text: "Priority", parent: prioGroup });
 		const prioSelect = createElement("select", { cls: "umos-pg-select", parent: prioGroup });
-		this.addOpt(prioSelect, "all", "Все приоритеты");
+		this.addOpt(prioSelect, "all", "All priorities");
 		for (const [key, m] of Object.entries(PRIORITY_DISPLAY))
 			this.addOpt(prioSelect, key, `${m.icon} ${m.label}`);
 		prioSelect.value = this.filterPriority;
@@ -540,24 +585,17 @@ export class ProjectGallery extends BaseWidget {
 		});
 
 		const sortGroup = createElement("div", { cls: "umos-pg-select-group", parent: row2 });
-		createElement("label", { cls: "umos-pg-select-label", text: "Сортировка", parent: sortGroup });
+		createElement("label", { cls: "umos-pg-select-label", text: "Sort", parent: sortGroup });
 		const sortSelect = createElement("select", { cls: "umos-pg-select", parent: sortGroup });
-		this.addOpt(sortSelect, "deadline", "📅 По дедлайну");
-		this.addOpt(sortSelect, "updated",  "🕐 Обновлённые");
-		this.addOpt(sortSelect, "name",     "🔤 По имени");
-		this.addOpt(sortSelect, "progress", "📊 По прогрессу");
+		this.addOpt(sortSelect, "deadline", "📅 By deadline");
+		this.addOpt(sortSelect, "updated",  "🕐 Recently updated");
+		this.addOpt(sortSelect, "name",     "🔤 By name");
+		this.addOpt(sortSelect, "progress", "📊 By progress");
 		sortSelect.value = this.sortMode;
 		sortSelect.addEventListener("change", () => {
 			this.sortMode = sortSelect.value;
 			this.filterAndRender();
 		});
-
-		const addBtn = createElement("button", { cls: "umos-pg-add-btn", parent: row2 });
-		addBtn.appendText("＋");
-		createElement("span", { cls: "umos-pg-add-btn-text", text: " Новый проект", parent: addBtn });
-		addBtn.addEventListener("click", () => this.openAddModal());
-
-		this.filterCountEl = createElement("div", { cls: "umos-pg-filter-count", parent: row2 });
 	}
 
 	private syncPills(pillsRow: HTMLElement, activeKey: string): void {
@@ -597,7 +635,7 @@ export class ProjectGallery extends BaseWidget {
 		filtered = this.sortCards(filtered);
 
 		if (this.filterCountEl)
-			this.filterCountEl.textContent = `${filtered.length} из ${this.allCards.length}`;
+			this.filterCountEl.textContent = `${filtered.length} of ${this.allCards.length}`;
 
 		if (filtered.length === 0) { this.emptyEl.style.display = "flex"; return; }
 		this.emptyEl.style.display = "none";
@@ -613,7 +651,7 @@ export class ProjectGallery extends BaseWidget {
 				return a.deadlineDays - b.deadlineDays;
 			}
 			if (this.sortMode === "updated")  return b.mtime - a.mtime;
-			if (this.sortMode === "name")     return a.title.localeCompare(b.title, "ru");
+			if (this.sortMode === "name")     return a.title.localeCompare(b.title, "en");
 			if (this.sortMode === "progress") return b.tasksPct - a.tasksPct;
 			return 0;
 		});
@@ -624,6 +662,7 @@ export class ProjectGallery extends BaseWidget {
 	private renderCard(parent: HTMLElement, c: ProjectCard): void {
 		const card = createElement("div", { cls: "umos-pg-card", parent });
 		card.style.setProperty("--pg-card-color", c.color);
+		card.dataset.statusKey = c.nStatus;
 		card.addEventListener("click", () =>
 			this.obsidianApp.workspace.openLinkText(c.path, "", false),
 		);
@@ -662,17 +701,31 @@ export class ProjectGallery extends BaseWidget {
 		if (pm) createElement("span", { cls: `umos-pg-card-priority ${pm.cls}`, text: `${pm.icon} ${pm.label}`, parent: badges });
 
 		const deleteBtn = createElement("button", { cls: "umos-pg-card-delete", parent: badgesRow });
-		deleteBtn.setAttribute("aria-label", "Удалить проект");
-		deleteBtn.textContent = "✕";
+		deleteBtn.setAttribute("aria-label", "Delete project");
+		setIcon(deleteBtn, "x");
 		deleteBtn.addEventListener("click", async (e) => {
 			e.stopPropagation();
-			if (!window.confirm(`Удалить проект "${c.title}"? Будет удалена вся папка проекта.`)) return;
+			if (!window.confirm(`Delete project "${c.title}"? The entire project folder will be deleted.`)) return;
 			await this.deleteProjectFolder(c.folderPath);
 			this.allCards = this.loadAllCards();
 			this.render();
 		});
 
-		createElement("div", { cls: "umos-pg-card-title", text: c.title, parent: content });
+		const headline = createElement("div", { cls: "umos-pg-card-headline", parent: content });
+		createElement("div", { cls: "umos-pg-card-title", text: c.title, parent: headline });
+
+		const metaRow = createElement("div", { cls: "umos-pg-card-meta-row", parent: content });
+		const deadlineTone = c.deadlineDays < 0 ? " is-danger" : c.deadlineDays <= 3 ? " is-warning" : "";
+		const deadlineMeta = createElement("span", {
+			cls: `umos-pg-card-meta${c.deadline ? deadlineTone : " is-muted"}`,
+			parent: metaRow,
+		});
+		setIcon(deadlineMeta, "calendar-days");
+		deadlineMeta.appendText(c.deadline ? formatDeadline(c.deadlineDays) : "no deadline");
+
+		const tasksMeta = createElement("span", { cls: "umos-pg-card-meta", parent: metaRow });
+		setIcon(tasksMeta, "list-checks");
+		tasksMeta.appendText(c.tasksTotal > 0 ? `${c.tasksDone}/${c.tasksTotal}` : "no tasks");
 
 		if (c.description) {
 			const desc = c.description.length > 80 ? c.description.slice(0, 80) + "..." : c.description;
@@ -693,18 +746,21 @@ export class ProjectGallery extends BaseWidget {
 			fill.style.background = `linear-gradient(90deg, ${c.color}, color-mix(in srgb, ${c.color} 70%, white))`;
 			createElement("span", {
 				cls:  "umos-pg-card-ptext",
-				text: `${c.tasksDone}/${c.tasksTotal} задач · ${c.tasksPct}%`,
+				text: `${c.tasksDone}/${c.tasksTotal} tasks · ${c.tasksPct}%`,
 				parent: bottom,
 			});
 		} else {
-			createElement("span", { cls: "umos-pg-card-ptext umos-pg-card-ptext-empty", text: "Нет задач", parent: bottom });
+			createElement("span", { cls: "umos-pg-card-ptext umos-pg-card-ptext-empty", text: "No tasks", parent: bottom });
 		}
 
 		// ── Hover action bar ──
 		const actions = createElement("div", { cls: "umos-pg-card-actions", parent: card });
 		actions.addEventListener("click", e => e.stopPropagation());
 
-		const openBtn = createElement("button", { cls: "umos-pg-card-action-btn", text: "↗ Открыть", parent: actions });
+		const openBtn = createElement("button", { cls: "umos-pg-card-action-btn", parent: actions });
+		const openIcon = createElement("span", { parent: openBtn });
+		setIcon(openIcon, "external-link");
+		createElement("span", { text: "Open", parent: openBtn });
 		openBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
 			this.obsidianApp.workspace.openLinkText(c.path, "", false);
@@ -714,9 +770,10 @@ export class ProjectGallery extends BaseWidget {
 		const nextMeta = STATUS_DISPLAY[nextKey];
 		const cycleBtn = createElement("button", {
 			cls:  "umos-pg-card-action-btn",
-			text: `${nextMeta.icon} ${nextMeta.label}`,
 			parent: actions,
 		});
+		createElement("span", { text: nextMeta.icon, parent: cycleBtn });
+		createElement("span", { text: nextMeta.label, parent: cycleBtn });
 		cycleBtn.addEventListener("click", async (e) => {
 			e.stopPropagation();
 			await this.cycleCardStatus(c);
@@ -732,7 +789,7 @@ export class ProjectGallery extends BaseWidget {
 		const nextRaw   = STATUS_RAW[nextKey] ?? nextKey;
 		const nextLabel = STATUS_DISPLAY[nextKey]?.label ?? nextKey;
 		await this.obsidianApp.fileManager.processFrontMatter(file, fm => { fm.status = nextRaw; });
-		new Notice(`Статус: ${nextLabel}`);
+		new Notice(`Status: ${nextLabel}`);
 		this.allCards = this.loadAllCards();
 		this.render();
 	}
@@ -741,9 +798,9 @@ export class ProjectGallery extends BaseWidget {
 
 	private async deleteProjectFolder(folderPath: string): Promise<void> {
 		const folder = this.obsidianApp.vault.getAbstractFileByPath(folderPath);
-		if (!(folder instanceof TFolder)) { new Notice("Папка проекта не найдена"); return; }
+		if (!(folder instanceof TFolder)) { new Notice("Project folder not found"); return; }
 		await this.deleteFolderRecursive(folder);
-		new Notice("Проект удалён");
+		new Notice("Project deleted");
 	}
 
 	private async deleteFolderRecursive(folder: TFolder): Promise<void> {
@@ -782,30 +839,30 @@ export class ProjectGallery extends BaseWidget {
 		m.modalEl.addClass("umos-pg-obsidian-modal");
 		const { contentEl } = m;
 
-		contentEl.createEl("h3", { text: "Новый проект", cls: "umos-pg-modal-title" });
+		contentEl.createEl("h3", { text: "New Project", cls: "umos-pg-modal-title" });
 		const body = contentEl.createDiv({ cls: "umos-pg-modal-body" });
 
 		// Name
 		const nameField = body.createDiv({ cls: "umos-pg-modal-field" });
-		nameField.createEl("label", { cls: "umos-pg-modal-label", text: "Название" });
+		nameField.createEl("label", { cls: "umos-pg-modal-label", text: "Title" });
 		const nameInput = nameField.createEl("input", {
 			cls: "umos-pg-modal-input",
-			attr: { type: "text", placeholder: "Введите название..." },
+			attr: { type: "text", placeholder: "Enter a title..." },
 		});
 
 		// Description
 		const descField = body.createDiv({ cls: "umos-pg-modal-field" });
-		descField.createEl("label", { cls: "umos-pg-modal-label", text: "Описание (необязательно)" });
+		descField.createEl("label", { cls: "umos-pg-modal-label", text: "Description (optional)" });
 		const descInput = descField.createEl("textarea", {
 			cls: "umos-pg-modal-input umos-pg-modal-textarea",
-			attr: { placeholder: "Краткое описание проекта..." },
+			attr: { placeholder: "Short project description..." },
 		}) as HTMLTextAreaElement;
 
 		// Priority + Color row
 		const row = body.createDiv({ cls: "umos-pg-modal-row" });
 
 		const prioField = row.createDiv({ cls: "umos-pg-modal-field" });
-		prioField.createEl("label", { cls: "umos-pg-modal-label", text: "Приоритет" });
+		prioField.createEl("label", { cls: "umos-pg-modal-label", text: "Priority" });
 		const prioSelect = prioField.createEl("select", { cls: "umos-pg-modal-input" }) as HTMLSelectElement;
 		for (const [key, meta] of Object.entries(PRIORITY_DISPLAY)) {
 			const opt = prioSelect.createEl("option", { text: `${meta.icon} ${meta.label}` });
@@ -814,7 +871,7 @@ export class ProjectGallery extends BaseWidget {
 		prioSelect.value = "medium";
 
 		const colorField = row.createDiv({ cls: "umos-pg-modal-field" });
-		colorField.createEl("label", { cls: "umos-pg-modal-label", text: "Цвет проекта" });
+		colorField.createEl("label", { cls: "umos-pg-modal-label", text: "Project color" });
 		const colorWrap  = colorField.createDiv({ cls: "umos-pg-modal-color-wrap" });
 		const colorInput = colorWrap.createEl("input", {
 			cls: "umos-pg-modal-color-input",
@@ -830,25 +887,25 @@ export class ProjectGallery extends BaseWidget {
 
 		// Deadline
 		const dlField = body.createDiv({ cls: "umos-pg-modal-field" });
-		dlField.createEl("label", { cls: "umos-pg-modal-label", text: "Дедлайн (необязательно)" });
+		dlField.createEl("label", { cls: "umos-pg-modal-label", text: "Deadline (optional)" });
 		const dlInput = dlField.createEl("input", {
 			cls: "umos-pg-modal-input",
 			attr: { type: "date" },
 		}) as HTMLInputElement;
 
 		// Submit
-		const submitBtn = body.createEl("button", { cls: "umos-pg-modal-submit", text: "Создать проект" });
+		const submitBtn = body.createEl("button", { cls: "umos-pg-modal-submit", text: "Create project" });
 
 		const create = async () => {
 			const name = nameInput.value.trim();
-			if (!name) { new Notice("Введите название проекта"); return; }
+			if (!name) { new Notice("Enter a title projects"); return; }
 			const root     = this.getProjectsRoot();
 			const safeName = name.replace(/[\\/:*?"<>|]/g, "_");
 			const folderPath = `${root}/${safeName}`;
 			if (!this.obsidianApp.vault.getAbstractFileByPath(root))
 				await this.obsidianApp.vault.createFolder(root);
 			if (this.obsidianApp.vault.getAbstractFileByPath(folderPath)) {
-				new Notice(`Проект уже существует: ${safeName}`); return;
+				new Notice(`Project already exists: ${safeName}`); return;
 			}
 			await this.obsidianApp.vault.createFolder(folderPath);
 
@@ -860,7 +917,7 @@ export class ProjectGallery extends BaseWidget {
 
 			const newFile = await this.obsidianApp.vault.create(`${folderPath}/index.md`, content);
 			m.close();
-			new Notice(`✅ Проект создан: ${safeName}`);
+			new Notice(`✅ Project created: ${safeName}`);
 			await this.obsidianApp.workspace.getLeaf(false).openFile(newFile);
 			this.allCards = this.loadAllCards();
 			this.render();

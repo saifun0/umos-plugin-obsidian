@@ -4,30 +4,30 @@ import { getCurrentWeekNumber, getDayOfWeek } from "../../utils/date";
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 const WEEKDAY_LABELS_RU: Record<string, string> = {
-	monday: "Понедельник",
-	tuesday: "Вторник",
-	wednesday: "Среда",
-	thursday: "Четверг",
-	friday: "Пятница",
-	saturday: "Суббота",
+	monday: "Monday",
+	tuesday: "Tuesday",
+	wednesday: "Wednesday",
+	thursday: "Thursday",
+	friday: "Friday",
+	saturday: "Saturday",
 };
 
 const WEEKDAY_SHORT_RU: Record<string, string> = {
-	monday: "Пн",
-	tuesday: "Вт",
-	wednesday: "Ср",
-	thursday: "Чт",
-	friday: "Пт",
-	saturday: "Сб",
+	monday: "Mon",
+	tuesday: "Tue",
+	wednesday: "Wed",
+	thursday: "Thu",
+	friday: "Fri",
+	saturday: "Sat",
 };
 
 const SLOT_TYPE_LABELS: Record<string, string> = {
-	lecture: "Лекция",
-	seminar: "Семинар",
-	lab: "Лабораторная",
-	laboratory: "Лабораторная",
-	practice: "Практика",
-	exam: "Экзамен",
+	lecture: "Lecture",
+	seminar: "Seminar",
+	lab: "Lab",
+	laboratory: "Lab",
+	practice: "Practice",
+	exam: "Exam",
 };
 
 const SLOT_TYPE_ICONS: Record<string, string> = {
@@ -41,7 +41,7 @@ const SLOT_TYPE_ICONS: Record<string, string> = {
 export { WEEKDAYS, WEEKDAY_LABELS_RU, WEEKDAY_SHORT_RU, SLOT_TYPE_LABELS, SLOT_TYPE_ICONS };
 
 /**
- * Получить текущую неделю (week1 или week2).
+ *   wk (week1  week2).
  */
 export function getCurrentWeekKey(anchorDate: string): "week1" | "week2" {
 	const weekNum = getCurrentWeekNumber(anchorDate);
@@ -49,7 +49,7 @@ export function getCurrentWeekKey(anchorDate: string): "week1" | "week2" {
 }
 
 /**
- * Получить расписание на конкретный день текущей недели.
+ *       wk.
  */
 export function getTodaySlots(data: UmOSData): ScheduleSlot[] {
 	const weekKey = getCurrentWeekKey(data.settings.scheduleAnchorDate);
@@ -62,7 +62,7 @@ export function getTodaySlots(data: UmOSData): ScheduleSlot[] {
 }
 
 /**
- * Получить расписание на конкретный день конкретной недели.
+ *       wk.
  */
 export function getSlotsForDay(
 	data: UmOSData,
@@ -74,7 +74,7 @@ export function getSlotsForDay(
 }
 
 /**
- * Получить только заполненные слоты (с предметом), отсортированные по времени.
+ *     ( ),   .
  */
 export function getFilledSlots(slots: ScheduleSlot[]): ScheduleSlot[] {
 	return slots
@@ -83,7 +83,7 @@ export function getFilledSlots(slots: ScheduleSlot[]): ScheduleSlot[] {
 }
 
 /**
- * Установить слот в расписании.
+ *    .
  */
 export function setSlot(
 	data: UmOSData,
@@ -98,7 +98,7 @@ export function setSlot(
 
 	const slots = data.schedule[weekKey][day];
 
-	// Расширяем массив если нужно
+	//
 	while (slots.length <= slotIndex) {
 		slots.push(createEmptySlot());
 	}
@@ -111,7 +111,7 @@ export function setSlot(
 }
 
 /**
- * Создать пустой слот.
+ * Create  .
  */
 export function createEmptySlot(): ScheduleSlot {
 	return {
@@ -125,7 +125,7 @@ export function createEmptySlot(): ScheduleSlot {
 }
 
 /**
- * Определить текущую/следующую пару из списка заполненных слотов.
+ * Detect / classes of   .
  */
 export function getCurrentSlotInfo(slots: ScheduleSlot[]): {
 	currentSlot: ScheduleSlot | null;
@@ -163,14 +163,14 @@ export function getCurrentSlotInfo(slots: ScheduleSlot[]): {
 }
 
 /**
- * Подсчитать количество заполненных пар.
+ *    classes.
  */
 export function countSlots(slots: ScheduleSlot[]): number {
 	return slots.filter((s) => s.subject && s.subject.trim() !== "").length;
 }
 
 /**
- * Подсчитать пары на неделю.
+ *  classes  wk.
  */
 export function countWeekSlots(data: UmOSData, weekKey: "week1" | "week2"): number {
 	let total = 0;
@@ -181,7 +181,7 @@ export function countWeekSlots(data: UmOSData, weekKey: "week1" | "week2"): numb
 }
 
 /**
- * Форматирование countdown до конца/начала пары.
+ *  countdown ends in/ classes.
  */
 export function formatSlotCountdown(targetTime: string): string {
 	if (!targetTime) return "";
@@ -194,8 +194,8 @@ export function formatSlotCountdown(targetTime: string): string {
 	if (diff <= 0) return "";
 	const h = Math.floor(diff / 60);
 	const m = diff % 60;
-	if (h > 0) return `${h}ч ${m}мин`;
-	return `${m}мин`;
+	if (h > 0) return `${h}h ${m}min`;
+	return `${m}min`;
 }
 
 function timeToMin(time: string): number {

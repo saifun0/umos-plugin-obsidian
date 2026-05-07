@@ -67,7 +67,7 @@ export class WordOfDayWidget extends MarkdownRenderChild {
 
 		createElement("span", {
 			cls: "umos-word-of-day-title",
-			text: "Слово дня",
+			text: "Word of the Day",
 			parent: header,
 		});
 

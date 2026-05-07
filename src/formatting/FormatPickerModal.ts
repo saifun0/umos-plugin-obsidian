@@ -14,237 +14,255 @@ interface FormatItem {
 }
 
 const ITEMS: FormatItem[] = [
-	// ── Каллауты ─────────────────────────────────────────────────────
+	// ── Callouts ─────────────────────────────────────────────────────
 	{
 		id: "callout-focus",
-		category: "Каллауты",
+		category: "Callouts",
 		icon: "⚡",
-		name: "Focus — Важно",
-		desc: "Акцентный блок, фиолетовый",
+		name: "Focus — Important",
+		desc: "Accent block, purple",
 		snippet: "> [!focus-umos]\n> ",
 		isBlock: true,
 	},
 	{
-		id: "callout-reflect",
-		category: "Каллауты",
-		icon: "✍️",
-		name: "Reflect — Рефлексия",
-		desc: "Дневник / личные мысли, курсив",
-		snippet: "> [!reflect-umos] Мысль\n> ",
+		id: "callout-focus-center",
+		category: "Callouts",
+		icon: "⚡",
+		name: "Focus — Centered",
+		desc: "Accent callout with the |center parameter",
+		snippet: "> [!focus-umos|center]\n> ",
 		isBlock: true,
 	},
 	{
-		id: "callout-goal",
-		category: "Каллауты",
-		icon: "🎯",
-		name: "Goal — Цель",
-		desc: "Блок цели, зелёный",
-		snippet: "> [!goal-umos] Цель\n> ",
+		id: "callout-reflect",
+		category: "Callouts",
+		icon: "✍️",
+		name: "Reflect — Reflection",
+		desc: "Journal / personal thoughts, italic",
+		snippet: "> [!reflect-umos] Thought\n> ",
 		isBlock: true,
 	},
 	{
 		id: "callout-verse",
-		category: "Каллауты",
+		category: "Callouts",
 		icon: "💬",
-		name: "Verse — Цитата / Стих",
-		desc: "Без заголовка, крупный курсив",
+		name: "Verse — Quote / Verse",
+		desc: "No title, large italic",
 		snippet: "> [!verse-umos]\n> ",
 		isBlock: true,
 	},
 	{
+		id: "callout-verse-center",
+		category: "Callouts",
+		icon: "💬",
+		name: "Verse — Centered",
+		desc: "Quote / verse with the |center parameter",
+		snippet: "> [!verse-umos|center]\n> ",
+		isBlock: true,
+	},
+	{
 		id: "callout-arabic",
-		category: "Каллауты",
+		category: "Callouts",
 		icon: "📖",
-		name: "Arabic — Арабский текст",
-		desc: "RTL, крупный шрифт Amiri",
-		snippet: "> [!arabic-umos] Аят\n> ",
+		name: "Arabic — Arabic Text",
+		desc: "RTL, large Amiri font",
+		snippet: "> [!arabic-umos] Ayah\n> ",
 		isBlock: true,
 	},
 	{
 		id: "callout-stat",
-		category: "Каллауты",
+		category: "Callouts",
 		icon: "📊",
-		name: "Stat — Мини-статистика",
-		desc: "Горизонтальные цифры в тексте",
-		snippet: "> [!stat-umos] Заголовок\n> **42** задачи\n> **7** привычек\n> **3** цели\n",
+		name: "Stat — Mini Stats",
+		desc: "Horizontal numbers in text",
+		snippet: "> [!stat-umos] Title\n> **42** tasks\n> **7** habits\n> **3** projects\n",
 		isBlock: true,
 	},
 
-	// ── Разделители ───────────────────────────────────────────────────
+	// ── Dividers ───────────────────────────────────────────────────
 	{
 		id: "div-dots",
-		category: "Разделители",
+		category: "Dividers",
 		icon: "·",
-		name: "Точки  · · · · ·",
-		desc: "Добавить cssclass umos-divider-dots в frontmatter",
+		name: "Dots  · · · · ·",
+		desc: "Add cssclass umos-divider-dots to frontmatter",
 		snippet: "umos-divider-dots",
 		isCssClass: true,
 	},
 	{
 		id: "div-ornament",
-		category: "Разделители",
+		category: "Dividers",
 		icon: "✦",
-		name: "Орнамент  ──── ✦ ────",
-		desc: "Добавить cssclass umos-divider-ornament в frontmatter",
+		name: "Ornament  ──── ✦ ────",
+		desc: "Add cssclass umos-divider-ornament to frontmatter",
 		snippet: "umos-divider-ornament",
 		isCssClass: true,
 	},
 	{
 		id: "div-gradient",
-		category: "Разделители",
+		category: "Dividers",
 		icon: "━",
-		name: "Градиент ────────",
-		desc: "Добавить cssclass umos-divider-gradient в frontmatter",
+		name: "Gradient ────────",
+		desc: "Add cssclass umos-divider-gradient to frontmatter",
 		snippet: "umos-divider-gradient",
 		isCssClass: true,
 	},
 
-	// ── CSS-классы для заметки ─────────────────────────────────────────
+	// ── CSS-   ─────────────────────────────────────────
 	{
 		id: "cls-wide",
-		category: "Классы заметки",
+		category: "Note Classes",
 		icon: "⟷",
-		name: "Wide — На всю ширину",
-		desc: "Убирает max-width контента",
+		name: "Wide — Full width",
+		desc: "Removes content max-width",
 		snippet: "umos-wide",
 		isCssClass: true,
 	},
 	{
+		id: "cls-wide-soft",
+		category: "Note Classes",
+		icon: "↔",
+		name: "Soft Wide — Soft wide",
+		desc: "Wider than a regular note, but not full-screen",
+		snippet: "umos-wide-soft",
+		isCssClass: true,
+	},
+	{
 		id: "cls-reading",
-		category: "Классы заметки",
+		category: "Note Classes",
 		icon: "📚",
-		name: "Reading — Режим чтения",
-		desc: "Засечный шрифт, ширина 68ch, межстрочник 1.85",
+		name: "Reading — Reading Mode",
+		desc: "Serif font, 68ch width, 1.85 line height",
 		snippet: "umos-reading",
 		isCssClass: true,
 	},
 	{
 		id: "cls-no-title",
-		category: "Классы заметки",
+		category: "Note Classes",
 		icon: "🔇",
-		name: "No Title — Скрыть H1",
-		desc: "Прячет первый заголовок и inline-title",
+		name: "No Title — Hide H1",
+		desc: "Hides the first heading and inline title",
 		snippet: "umos-no-title",
 		isCssClass: true,
 	},
 	{
 		id: "cls-columns",
-		category: "Классы заметки",
+		category: "Note Classes",
 		icon: "⫶",
-		name: "Columns — Две колонки",
-		desc: "H1/H2 — на всю ширину, остальное в 2 колонки",
+		name: "Columns — Two Columns",
+		desc: "H1/H2 span full width, everything else uses 2 columns",
 		snippet: "umos-columns",
 		isCssClass: true,
 	},
 	{
 		id: "cls-headings",
-		category: "Классы заметки",
+		category: "Note Classes",
 		icon: "H",
-		name: "Headings Accent — Цветные заголовки",
-		desc: "H2/H3 с цветной полосой слева",
+		name: "Headings Accent — Colored Headings",
+		desc: "H2/H3 with a colored bar on the left",
 		snippet: "umos-headings-accent",
 		isCssClass: true,
 	},
 
-	// ── Макет (cols-umos / info-umos) ────────────────────────────────
+	// ── Layout (cols-umos / info-umos) ────────────────────────────────
 	{
 		id: "cols-2",
-		category: "Макет",
+		category: "Layout",
 		icon: "⫶",
-		name: "Колонки — 2 равные",
-		desc: "Текст в две колонки, разделитель ===",
-		snippet: "```cols-umos\n## Левая колонка\nТекст первой колонки.\n\n===\n\n## Правая колонка\nТекст второй колонки.\n```",
+		name: "Columns — 2 Equal",
+		desc: "Text in two columns, separated by ===",
+		snippet: "```cols-umos\n## Left Column\nText in the first column.\n\n===\n\n## Right Column\nText in the second column.\n```",
 		isBlock: true,
 	},
 	{
 		id: "cols-3",
-		category: "Макет",
+		category: "Layout",
 		icon: "⫸",
-		name: "Колонки — 3 равные",
-		desc: "Текст в три колонки",
-		snippet: "```cols-umos\n## Колонка 1\nТекст.\n\n===\n\n## Колонка 2\nТекст.\n\n===\n\n## Колонка 3\nТекст.\n```",
+		name: "Columns — 3 Equal",
+		desc: "Text in three columns",
+		snippet: "```cols-umos\n## Column 1\nText.\n\n===\n\n## Column 2\nText.\n\n===\n\n## Column 3\nText.\n```",
 		isBlock: true,
 	},
 	{
 		id: "cols-custom",
-		category: "Макет",
+		category: "Layout",
 		icon: "⚌",
-		name: "Колонки — задать число",
-		desc: "cols: N в первой строке принудительно задаёт количество",
-		snippet: "```cols-umos\ncols: 2\n\n## Колонка 1\nТекст.\n\n===\n\n## Колонка 2\nТекст.\n```",
+		name: "Columns — set count",
+		desc: "cols: N on the first line forces the count",
+		snippet: "```cols-umos\ncols: 2\n\n## Column 1\nText.\n\n===\n\n## Column 2\nText.\n```",
 		isBlock: true,
 	},
 	{
 		id: "infobox",
-		category: "Макет",
+		category: "Layout",
 		icon: "🗂",
-		name: "Инфополе (Wikipedia-стиль)",
-		desc: "Карточка справа от текста: заголовок, фото, таблица",
-		snippet: "```info-umos\ntitle: Имя / Название\nimage: 00 Files/photo.png\ncaption: Подпись к фото\n---\nИнформация\nПоле 1     | Значение 1\nПоле 2     | Значение 2\n\nДеятельность\nРоль       | Описание\n```",
+		name: "Infobox (Wikipedia-style)",
+		desc: "Card to the right of text: title, photo, table",
+		snippet: "```info-umos\ntitle: Name / Title\nimage: 00 Files/photo.png\ncaption: Photo caption\n---\nInformation\nField 1     | Value 1\nField 2     | Value 2\n\nActivity\nRole       | Description\n```",
 		isBlock: true,
 	},
 	{
 		id: "kanban-board",
-		category: "Макет",
+		category: "Layout",
 		icon: "📋",
-		name: "Канбан-доска",
-		desc: "Доска с колонками и карточками",
+		name: "Kanban Board",
+		desc: "Board with columns and cards",
 		snippet: "",
 		isBlock: true,
 	},
 
-	// ── Инлайн-метки ──────────────────────────────────────────────────
+	// ── - ──────────────────────────────────────────────────
 	{
 		id: "mark-red",
-		category: "Метки",
+		category: "Labels",
 		icon: "🔴",
-		name: "Метка — Красная",
-		desc: "Критично / важно",
-		snippet: '<mark class="umos-mark-red">текст</mark>',
+		name: "Mark — Red",
+		desc: "Critical / important",
+		snippet: '<mark class="umos-mark-red">text</mark>',
 	},
 	{
 		id: "mark-green",
-		category: "Метки",
+		category: "Labels",
 		icon: "🟢",
-		name: "Метка — Зелёная",
-		desc: "Готово / ок",
-		snippet: '<mark class="umos-mark-green">текст</mark>',
+		name: "Mark — Green",
+		desc: "Done / ok",
+		snippet: '<mark class="umos-mark-green">text</mark>',
 	},
 	{
 		id: "mark-blue",
-		category: "Метки",
+		category: "Labels",
 		icon: "🔵",
-		name: "Метка — Синяя",
-		desc: "Идея / заметка",
-		snippet: '<mark class="umos-mark-blue">текст</mark>',
+		name: "Mark — Blue",
+		desc: "Idea / note",
+		snippet: '<mark class="umos-mark-blue">text</mark>',
 	},
 	{
 		id: "mark-yellow",
-		category: "Метки",
+		category: "Labels",
 		icon: "🟡",
-		name: "Метка — Жёлтая",
-		desc: "На заметку",
-		snippet: '<mark class="umos-mark-yellow">текст</mark>',
+		name: "Mark — Yellow",
+		desc: "Worth noting",
+		snippet: '<mark class="umos-mark-yellow">text</mark>',
 	},
 	{
 		id: "mark-purple",
-		category: "Метки",
+		category: "Labels",
 		icon: "🟣",
-		name: "Метка — Фиолетовая",
-		desc: "Вопрос / неясно",
-		snippet: '<mark class="umos-mark-purple">текст</mark>',
+		name: "Mark — Purple",
+		desc: "Question / unclear",
+		snippet: '<mark class="umos-mark-purple">text</mark>',
 	},
 	{
 		id: "pill",
-		category: "Метки",
+		category: "Labels",
 		icon: "🏷",
-		name: "Пилюля-тег",
-		desc: "Акцентный инлайн-тег",
-		snippet: '<span class="umos-pill">тег</span>',
+		name: "Pill Tag",
+		desc: "Accent inline tag",
+		snippet: '<span class="umos-pill">tag</span>',
 	},
 ];
 
-const CATEGORY_ORDER = ["Каллауты", "Макет", "Разделители", "Классы заметки", "Метки"];
+const CATEGORY_ORDER = ["Callouts", "Layout", "Dividers", "Note Classes", "Labels"];
 
 export class FormatPickerModal extends Modal {
 	private query = "";
@@ -274,7 +292,7 @@ export class FormatPickerModal extends Modal {
 		const searchWrap = contentEl.createDiv({ cls: "umos-fp-search-wrap" });
 		this.inputEl = searchWrap.createEl("input", {
 			cls: "umos-fp-search",
-			attr: { type: "text", placeholder: "Поиск форматирования…" },
+			attr: { type: "text", placeholder: "Search formatting..." },
 		}) as HTMLInputElement;
 
 		// ── List ──────────────────────────────────────────────────────
@@ -295,7 +313,7 @@ export class FormatPickerModal extends Modal {
 		});
 
 		this.renderList();
-		// Фокус на инпут после открытия
+		//
 		setTimeout(() => this.inputEl.focus(), 50);
 	}
 
@@ -316,14 +334,14 @@ export class FormatPickerModal extends Modal {
 		if (this.focusedIdx >= filtered.length) this.focusedIdx = 0;
 
 		if (filtered.length === 0) {
-			this.listEl.createDiv({ cls: "umos-fp-empty", text: "Ничего не найдено" });
+			this.listEl.createDiv({ cls: "umos-fp-empty", text: "Nothing found" });
 			return;
 		}
 
 		let globalIdx = 0;
 
 		if (q) {
-			// без группировки при поиске
+			//
 			for (const item of filtered) {
 				this.renderItem(item, globalIdx++);
 			}
@@ -354,7 +372,7 @@ export class FormatPickerModal extends Modal {
 
 		const badge = row.createSpan({
 			cls: "umos-fp-item-badge",
-			text: item.isCssClass ? "cssclass" : "вставить",
+			text: item.isCssClass ? "cssclass" : "insert",
 		});
 		if (item.isCssClass) badge.addClass("umos-fp-item-badge--cls");
 
@@ -370,7 +388,7 @@ export class FormatPickerModal extends Modal {
 		if (len === 0) return;
 		this.focusedIdx = (this.focusedIdx + delta + len) % len;
 		this.highlightFocused();
-		// Прокрутить в видимую зону
+		//
 		const focused = this.listEl.querySelector(".umos-fp-item.is-focused");
 		focused?.scrollIntoView({ block: "nearest" });
 	}
@@ -421,22 +439,22 @@ export class FormatPickerModal extends Modal {
 		this.close();
 	}
 
-	/** Вставить сниппет в позицию курсора */
+	/** Insert     */
 	private insertSnippet(snippet: string, isBlock: boolean): void {
 		const editor = this.app.workspace.activeEditor?.editor;
 		if (!editor) return;
 
 		if (isBlock) {
-			// Блочный элемент (каллаут) должен начинаться с новой пустой строки
+			//   ()
 			const cursor = editor.getCursor();
 			const lineText = editor.getLine(cursor.line);
 			const beforeCursor = lineText.slice(0, cursor.ch);
 
-			// Если текущая строка не пустая — перейти на новую перед вставкой
+			//      —
 			if (beforeCursor.trim() !== "") {
 				editor.replaceSelection("\n\n" + snippet);
 			} else if (cursor.line > 0) {
-				// Строка пустая, но предыдущая может быть не пустой
+				//  ,
 				const prevLine = editor.getLine(cursor.line - 1);
 				if (prevLine.trim() !== "") {
 					editor.replaceSelection("\n" + snippet);
@@ -451,7 +469,7 @@ export class FormatPickerModal extends Modal {
 		}
 	}
 
-	/** Добавить CSS-класс в frontmatter cssclasses заметки */
+	/** Add CSS-  frontmatter cssclasses  */
 	private addCssClass(cls: string): void {
 		const file = this.app.workspace.getActiveFile();
 		if (!file) return;
@@ -486,9 +504,9 @@ class KanbanBoardPickerModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl("h3", { text: "Канбан-доска" });
+		contentEl.createEl("h3", { text: "Kanban Board" });
 
-		const inputSetting = new Setting(contentEl).setName("Название доски");
+		const inputSetting = new Setting(contentEl).setName("Board title");
 		inputSetting.addText(t => {
 			t.setPlaceholder("my-board");
 			this.inputEl = t.inputEl;
@@ -504,7 +522,7 @@ class KanbanBoardPickerModal extends Modal {
 
 		if (this.existingIds.length > 0) {
 			contentEl.createEl("div", {
-				text: "Существующие доски",
+				text: "Existing boards",
 				cls: "umos-fp-category",
 			});
 
@@ -523,7 +541,7 @@ class KanbanBoardPickerModal extends Modal {
 		}
 
 		new Setting(contentEl).addButton(btn => {
-			btn.setButtonText("Вставить").setCta().onClick(() => {
+			btn.setButtonText("Insert").setCta().onClick(() => {
 				const val = this.inputEl.value.trim() || "default";
 				this.pick(val);
 			});

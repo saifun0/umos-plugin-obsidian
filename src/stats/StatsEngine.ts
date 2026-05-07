@@ -32,7 +32,7 @@ export class StatsEngine {
 	}
 
 	/**
-	 * Инициализация: первичный скан + подписка на изменения.
+	 * :   +   .
 	 */
 	init(registerEvent: (ref: ReturnType<typeof this.app.metadataCache.on>) => void): void {
 		// On mobile, metadata cache may not be ready yet at plugin load.
@@ -85,15 +85,23 @@ export class StatsEngine {
 	}
 
 	/**
-	 * Получает данные метрики за период (дней назад от сегодня).
+	 *      (days   today).
 	 */
 	getMetricData(metric: string, periodDays: number): StatsResult {
 		const today = getTodayInTimezone();
+		const from = new Date(today);
+		from.setDate(from.getDate() - Math.max(periodDays - 1, 0));
+		return this.getMetricDataForRange(metric, formatDate(from), formatDate(today));
+	}
+
+	getMetricDataForRange(metric: string, fromDate: string, toDate: string): StatsResult {
+		const from = new Date(`${fromDate}T00:00:00`);
+		const to = new Date(`${toDate}T00:00:00`);
+		const start = from <= to ? from : to;
+		const end = from <= to ? to : from;
 		const data: MetricData[] = [];
 
-		for (let i = periodDays - 1; i >= 0; i--) {
-			const date = new Date(today);
-			date.setDate(date.getDate() - i);
+		for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
 			const dateStr = formatDate(date);
 			const value = this.getValueForDate(dateStr, metric);
 
@@ -107,7 +115,7 @@ export class StatsEngine {
 		const avg = values.length > 0 ? sum / values.length : 0;
 		const min = values.length > 0 ? Math.min(...values) : 0;
 		const max = values.length > 0 ? Math.max(...values) : 0;
-		const streak = this.calculateStreak(metric);
+		const streak = this.calculateStreak(metric, formatDate(start), formatDate(end));
 
 		return {
 			metric,
@@ -122,7 +130,7 @@ export class StatsEngine {
 	}
 
 	/**
-	 * Получает prayer_count — количество отмеченных намазов за дату.
+	 *  prayer_count —  checked   .
 	 */
 	getPrayerCountForDate(dateStr: string): number {
 		const prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
@@ -137,15 +145,15 @@ export class StatsEngine {
 	}
 
 	/**
-	 * Возвращает сырое значение метрики для конкретной даты.
+	 *       .
 	 */
 	getValueForDate(dateStr: string, metric: string): number | null {
-		// Специальная метрика prayer_count
+		//   prayer_count
 		if (metric === "prayer_count") {
 			return this.getPrayerCountForDate(dateStr);
 		}
 
-		// Ищем файл по дате
+		//
 		const filePath = this.dateToFilePath(dateStr);
 		const fileCache = this.cache.get(filePath);
 
@@ -162,7 +170,7 @@ export class StatsEngine {
 	}
 
 	/**
-	 * Получает текстовые данные метрики за период (для нечисловых полей вроде word_of_day).
+	 *  text     (    word_of_day).
 	 */
 	getTextDataForPeriod(metric: string, periodDays: number): { date: string; value: string }[] {
 		const today = getTodayInTimezone();
@@ -185,7 +193,7 @@ export class StatsEngine {
 	}
 
 	/**
-	 * Получает все значения frontmatter для даты.
+	 *    frontmatter  .
 	 */
 	getAllValuesForDate(dateStr: string): Record<string, unknown> {
 		const filePath = this.dateToFilePath(dateStr);
@@ -201,15 +209,17 @@ export class StatsEngine {
 	}
 
 	/**
-	 * Вычисляет streak — последовательные дни с заполненной метрикой.
+	 *  streak —     .
 	 */
-	private calculateStreak(metric: string): number {
-		const today = getTodayInTimezone();
+	private calculateStreak(metric: string, fromDate?: string, toDate?: string): number {
+		const end = toDate ? new Date(`${toDate}T00:00:00`) : getTodayInTimezone();
+		const from = fromDate ? new Date(`${fromDate}T00:00:00`) : null;
 		let streak = 0;
 
 		for (let i = 0; i < 365; i++) {
-			const date = new Date(today);
+			const date = new Date(end);
 			date.setDate(date.getDate() - i);
+			if (from && date < from) break;
 			const dateStr = formatDate(date);
 			const value = this.getValueForDate(dateStr, metric);
 
@@ -223,7 +233,7 @@ export class StatsEngine {
 		return streak;
 	}
 
-	// ─── Внутренние методы ──────────────────────
+	// ───   ──────────────────────
 
 	private scanAllDailyNotes(): void {
 		const folderPath = normalizePath(this.settings.dailyNotesPath);

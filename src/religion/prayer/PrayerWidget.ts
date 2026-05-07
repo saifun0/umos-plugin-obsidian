@@ -80,7 +80,7 @@ export class PrayerWidget extends BaseWidget {
 
 		createElement("span", {
 			cls: "umos-prayer-title",
-			text: "🕌 Времена намаза",
+			text: "🕌 Prayer Times",
 			parent: titleRow,
 		});
 
@@ -100,7 +100,7 @@ export class PrayerWidget extends BaseWidget {
 
 		createElement("span", {
 			cls: "umos-prayer-city-name",
-			text: cityName || "Город не указан",
+			text: cityName || "City not set",
 			parent: cityRow,
 		});
 
@@ -141,7 +141,7 @@ export class PrayerWidget extends BaseWidget {
 			});
 			createElement("span", {
 				cls: "umos-prayer-all-done-text",
-				text: "Все намазы на сегодня совершены",
+				text: "All prayers are completed for today",
 				parent: doneWrapper,
 			});
 			return;
@@ -160,7 +160,7 @@ export class PrayerWidget extends BaseWidget {
 
 		createElement("div", {
 			cls: "umos-prayer-next-label",
-			text: "Следующий намаз",
+			text: "Next prayer",
 			parent: infoEl,
 		});
 
@@ -183,7 +183,7 @@ export class PrayerWidget extends BaseWidget {
 
 		createElement("div", {
 			cls: "umos-prayer-next-countdown",
-			text: `через ${formatCountdown(next.minutesLeft)}`,
+			text: `in ${formatCountdown(next.minutesLeft)}`,
 			parent: timeArea,
 		});
 	}
@@ -273,7 +273,7 @@ export class PrayerWidget extends BaseWidget {
 
 		createElement("div", {
 			cls: "umos-prayer-loading-text",
-			text: "🕌 Загрузка времён намаза...",
+			text: "🕌 Loading prayer times...",
 			parent: loading,
 		});
 

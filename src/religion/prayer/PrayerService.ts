@@ -3,6 +3,7 @@ import { EventBus, PrayerTimesData } from "../../EventBus";
 import { UmOSSettings } from "../../settings/Settings";
 import { safeFetch, buildAladhanUrlByCoords } from "../../utils/api";
 import { formatDateForAladhan, getTodayDateString } from "../../utils/date";
+import { getLanguage } from "../../i18n";
 
 const LOCALSTORAGE_KEY = "umos-prayer-cache";
 
@@ -15,6 +16,15 @@ const PRAYER_NAMES_RU: Record<string, string> = {
 	Isha: "Иша",
 };
 
+const PRAYER_NAMES_EN: Record<string, string> = {
+	Fajr: "Fajr",
+	Sunrise: "Sunrise",
+	Dhuhr: "Dhuhr",
+	Asr: "Asr",
+	Maghrib: "Maghrib",
+	Isha: "Isha",
+};
+
 const PRAYER_ICONS: Record<string, string> = {
 	Fajr: "🌅",
 	Sunrise: "☀️",
@@ -24,10 +34,10 @@ const PRAYER_ICONS: Record<string, string> = {
 	Isha: "🌙",
 };
 
-/** Порядок намазов для отображения */
+/**     */
 const PRAYER_ORDER = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
 
-/** Только обязательные (без Sunrise) */
+/**   ( Sunrise) */
 const OBLIGATORY_PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
 
 export interface PrayerCacheEntry {
@@ -38,6 +48,14 @@ export interface PrayerCacheEntry {
 	hijriMonth: number;
 	hijriDay: number;
 	fetchedAt: number;
+}
+
+export interface PrayerSnapshot extends PrayerCacheEntry {}
+
+export interface PrayerRefreshResult {
+	ok: boolean;
+	snapshot: PrayerSnapshot | null;
+	error?: string;
 }
 
 interface AladhanResponse {
@@ -79,8 +97,8 @@ export class PrayerService {
 	}
 
 	/**
-	 * Инициализация: загрузка данных и настройка авто-обновления.
-	 * Вызывается из main.ts, registerInterval передаётся извне.
+	 * :     tue-.
+	 *  of main.ts, registerInterval  .
 	 */
 	async init(registerInterval: (id: number) => void): Promise<void> {
 		try {
@@ -89,7 +107,7 @@ export class PrayerService {
 			console.warn("umOS Prayer: init error, using cache:", error);
 		}
 
-		// Обновление каждый час (3600000 мс)
+		//    (3600000 )
 		const hourlyId = window.setInterval(() => {
 			this.fetchIfNeeded().catch((error) => {
 				console.error("umOS Prayer: auto-refresh error:", error);
@@ -97,7 +115,7 @@ export class PrayerService {
 		}, 3600000);
 		registerInterval(hourlyId);
 
-		// Проверка смены дня каждую минуту
+		//     minutes
 		const midnightCheckId = window.setInterval(() => {
 			this.checkDayChange();
 		}, 60000);
@@ -105,14 +123,14 @@ export class PrayerService {
 	}
 
 	/**
-	 * Возвращает кешированные данные или null.
+	 *     null.
 	 */
 	getCache(): PrayerCacheEntry | null {
 		return this.cache;
 	}
 
 	/**
-	 * Возвращает времена намазов на сегодня.
+	 *    for today.
 	 */
 	getTimes(): PrayerTimesData | null {
 		if (!this.cache || this.cache.date !== getTodayDateString()) {
@@ -122,21 +140,21 @@ export class PrayerService {
 	}
 
 	/**
-	 * Возвращает хиджри дату.
+	 *   .
 	 */
 	getHijriDate(): string {
 		return this.cache?.hijriDate || "";
 	}
 
 	/**
-	 * Возвращает григорианскую дату из API.
+	 *    of API.
 	 */
 	getGregorianDate(): string {
 		return this.cache?.gregorianDate || "";
 	}
 
 	/**
-	 * Определяет следующий намаз и оставшееся время.
+	 *      .
 	 */
 	getNextPrayer(): { name: string; nameRu: string; icon: string; time: string; minutesLeft: number } | null {
 		const times = this.getTimes();
@@ -153,7 +171,7 @@ export class PrayerService {
 			if (prayerMinutes > currentMinutes) {
 				return {
 					name,
-					nameRu: PRAYER_NAMES_RU[name] || name,
+					nameRu: PrayerService.getPrayerNameRu(name),
 					icon: PRAYER_ICONS[name] || "🕌",
 					time: timeStr,
 					minutesLeft: prayerMinutes - currentMinutes,
@@ -161,12 +179,12 @@ export class PrayerService {
 			}
 		}
 
-		// Все намазы прошли
+		// All
 		return null;
 	}
 
 	/**
-	 * Определяет статус каждого намаза: passed / next / upcoming / info.
+	 *    : passed / next / upcoming / info.
 	 */
 	getPrayerStatuses(): Record<string, "passed" | "next" | "upcoming" | "info"> {
 		const times = this.getTimes();
@@ -211,47 +229,46 @@ export class PrayerService {
 	}
 
 	/**
-	 * Проверяет, все ли намазы на сегодня завершены.
+	 * ,    for today .
 	 */
 	allPrayersDone(): boolean {
 		return this.getNextPrayer() === null && this.getTimes() !== null;
 	}
 
 	/**
-	 * Возвращает номер хиджри-месяца (1-12).
+	 *   -mo (1-12).
 	 */
 	getHijriMonth(): number {
 		return this.cache?.hijriMonth || 0;
 	}
 
 	/**
-	 * Возвращает день хиджри-месяца.
+	 *   .
 	 */
-	getHijriDay(): number {
-		return this.cache?.hijriDay || 0;
+	async refresh(): Promise<PrayerRefreshResult> {
+		const previousCache = this.cache;
+		try {
+			const entry = await this.fetchPrayerFromApi();
+			this.applyCache(entry);
+			return { ok: true, snapshot: this.createSnapshot(entry) };
+		} catch (error) {
+			this.cache = previousCache;
+			const message = error instanceof Error ? error.message : String(error);
+			console.error("umOS Prayer: force refresh error:", error);
+			if (!this.cache) {
+				this.loadFromLocalStorage();
+			}
+			return { ok: false, snapshot: this.getSnapshot(), error: message };
+		}
 	}
 
-	/**
-	 * Проверяет, является ли текущий месяц Рамаданом (9-й месяц хиджри).
-	 */
-	isRamadan(): boolean {
-		return this.getHijriMonth() === 9;
-	}
-
-	/**
-	 * Принудительно обновить данные.
-	 */
-	async refresh(): Promise<void> {
-		await this.fetchFromApi();
-	}
-
-	// ─── Приватные методы ────────────────────────────────
+	// ───   ────────────────────────────────
 
 	private async fetchIfNeeded(): Promise<void> {
 		const today = getTodayDateString();
 
 		if (this.cache && this.cache.date === today) {
-			// Данные актуальны, обновляем только если прошло >1 часа
+			//  ,     >1
 			const hourAgo = Date.now() - 3600000;
 			if (this.cache.fetchedAt > hourAgo) {
 				return;
@@ -262,6 +279,19 @@ export class PrayerService {
 	}
 
 	private async fetchFromApi(): Promise<void> {
+		try {
+			this.applyCache(await this.fetchPrayerFromApi());
+			console.log("umOS Prayer: data updated", this.cache?.times);
+		} catch (error) {
+			console.error("umOS Prayer: fetch error:", error);
+			//   of localStorage
+			if (!this.cache) {
+				this.loadFromLocalStorage();
+			}
+		}
+	}
+
+	private async fetchPrayerFromApi(): Promise<PrayerCacheEntry> {
 		const today = new Date();
 		const dateStr = formatDateForAladhan(today);
 
@@ -272,63 +302,65 @@ export class PrayerService {
 			this.settings.prayerMethod
 		);
 
-		try {
-			const response = await safeFetch<AladhanResponse>(url, {
-				timeout: 10000,
-				retries: 2,
-			});
+		const response = await safeFetch<AladhanResponse>(url, {
+			timeout: 10000,
+			retries: 2,
+		});
 
-			if (response.code !== 200 || !response.data) {
-				console.warn("umOS Prayer: unexpected API response:", response);
-				return;
-			}
-
-			const timings = response.data.timings;
-			const hijri = response.data.date.hijri;
-			const gregorian = response.data.date.gregorian;
-
-			// Извлекаем только нужные времена и убираем " (XXX)" из значений
-			const times: PrayerTimesData = {
-				Fajr: this.cleanTime(timings.Fajr),
-				Sunrise: this.cleanTime(timings.Sunrise),
-				Dhuhr: this.cleanTime(timings.Dhuhr),
-				Asr: this.cleanTime(timings.Asr),
-				Maghrib: this.cleanTime(timings.Maghrib),
-				Isha: this.cleanTime(timings.Isha),
-			};
-
-			const hijriDateStr = `${hijri.day} ${hijri.month.ar} ${hijri.year} ${hijri.designation.abbreviated}`;
-			const gregorianDateStr = `${gregorian.day} ${gregorian.month.en} ${gregorian.year}`;
-
-			this.cache = {
-				date: getTodayDateString(),
-				times,
-				hijriDate: hijriDateStr,
-				gregorianDate: gregorianDateStr,
-				hijriMonth: hijri.month.number,
-				hijriDay: parseInt(hijri.day, 10),
-				fetchedAt: Date.now(),
-			};
-
-			this.saveToLocalStorage();
-
-			this.eventBus.emit("prayer:updated", {
-				times,
-				hijriDate: hijriDateStr,
-			});
-
-			console.log("umOS Prayer: data updated", times);
-		} catch (error) {
-			console.error("umOS Prayer: fetch error:", error);
-			// Используем кеш из localStorage если есть
-			if (!this.cache) {
-				this.loadFromLocalStorage();
-			}
+		if (response.code !== 200 || !response.data) {
+			throw new Error(`Unexpected Aladhan response: ${response.status || response.code}`);
 		}
+
+		const timings = response.data.timings;
+		const hijri = response.data.date.hijri;
+		const gregorian = response.data.date.gregorian;
+
+		//       " (XXX)" of
+		const times: PrayerTimesData = {
+			Fajr: this.cleanTime(timings.Fajr),
+			Sunrise: this.cleanTime(timings.Sunrise),
+			Dhuhr: this.cleanTime(timings.Dhuhr),
+			Asr: this.cleanTime(timings.Asr),
+			Maghrib: this.cleanTime(timings.Maghrib),
+			Isha: this.cleanTime(timings.Isha),
+		};
+
+		const hijriDateStr = `${hijri.day} ${hijri.month.ar} ${hijri.year} ${hijri.designation.abbreviated}`;
+		const gregorianDateStr = `${gregorian.day} ${gregorian.month.en} ${gregorian.year}`;
+
+		return {
+			date: getTodayDateString(),
+			times,
+			hijriDate: hijriDateStr,
+			gregorianDate: gregorianDateStr,
+			hijriMonth: hijri.month.number,
+			hijriDay: parseInt(hijri.day, 10),
+			fetchedAt: Date.now(),
+		};
+	}
+
+	getSnapshot(): PrayerSnapshot | null {
+		return this.cache ? this.createSnapshot(this.cache) : null;
+	}
+
+	private applyCache(entry: PrayerCacheEntry): void {
+		this.cache = entry;
+		this.saveToLocalStorage();
+		this.eventBus.emit("prayer:updated", {
+			times: entry.times,
+			hijriDate: entry.hijriDate,
+		});
+	}
+
+	private createSnapshot(entry: PrayerCacheEntry): PrayerSnapshot {
+		return {
+			...entry,
+			times: { ...entry.times },
+		};
 	}
 
 	/**
-	 * Убирает " (EET)" и подобные суффиксы из времени.
+	 *  " (EET)"    of .
 	 */
 	private cleanTime(time: string): string {
 		return time.replace(/\s*\(.*\)\s*$/, "").trim();
@@ -372,10 +404,11 @@ export class PrayerService {
 	}
 
 	/**
-	 * Статические геттеры для внешнего использования.
+	 *     .
 	 */
 	static getPrayerNameRu(name: string): string {
-		return PRAYER_NAMES_RU[name] || name;
+		const names = getLanguage() === "ru" ? PRAYER_NAMES_RU : PRAYER_NAMES_EN;
+		return names[name] || name;
 	}
 
 	static getPrayerIcon(name: string): string {

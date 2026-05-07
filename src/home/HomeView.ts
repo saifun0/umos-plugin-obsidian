@@ -1,34 +1,29 @@
-import { App, ItemView, WorkspaceLeaf } from "obsidian";
+import { App, ItemView, MarkdownView, TFile, WorkspaceLeaf } from "obsidian";
 import { EventBus } from "../EventBus";
 import { UmOSSettings, UmOSData } from "../settings/Settings";
 import { PrayerService } from "../religion/prayer/PrayerService";
 import { StatsEngine } from "../stats/StatsEngine";
-import { PomodoroService } from "../productivity/pomodoro/PomodoroService";
-import { ExamService } from "../productivity/exam/ExamService";
-import { FinanceService } from "../finance/FinanceService";
 import { WeatherService } from "../weather/WeatherService";
-import { GoalsService } from "../productivity/goals/GoalsService";
-import { BalanceService } from "../balance/BalanceService";
 import { createElement } from "../utils/dom";
-import { HomeViewContext } from "./types";
+import { HomeViewContext, RecentClosedNote } from "./types";
 import { renderHeaderSection, updateClock } from "./sections/header";
 import { renderWeatherSection } from "./sections/weather";
 import { renderPrayerSection, updatePrayerCountdown } from "./sections/prayer";
-import { renderRamadanSection } from "./sections/ramadan";
 import { renderNavigationSection } from "./sections/navigation";
 import { renderStatsSection } from "./sections/stats";
 import { renderTasksSection } from "./sections/tasks";
 import { renderDeadlinesSection } from "./sections/deadlines";
 import { renderProjectsSection } from "./sections/projects";
 import { renderContentSection } from "./sections/content";
-import { renderPomodoroSection, updatePomodoroTimer } from "./sections/pomodoro";
-import { renderExamsSection } from "./sections/exams";
-import { renderFinanceSection } from "./sections/finance";
 import { renderFooter } from "./sections/footer";
-import { renderGoalsSection } from "./sections/goals";
-import { renderBalanceSection } from "./sections/balance";
+import { renderDesktopHome } from "./DesktopHomeView";
 
 export const HOME_VIEW_TYPE = "umos-home-view";
+
+type HomeLayout = "desktop" | "mobile";
+const DESKTOP_HOME_MIN_WIDTH = 920;
+const RECENT_CLOSED_NOTES_LIMIT = 8;
+const HOME_PRAYER_FRONTMATTER_KEYS = new Set(["fajr", "dhuhr", "asr", "maghrib", "isha"]);
 
 export class HomeView extends ItemView {
 	private obsidianApp: App;
@@ -38,17 +33,16 @@ export class HomeView extends ItemView {
 	private prayerService: PrayerService | null;
 	private statsEngine: StatsEngine | null;
 	private createDailyNoteFn: (() => Promise<void>) | null;
-	private pomodoroService: PomodoroService | null;
-	private examService: ExamService | null;
-	private financeService: FinanceService | null;
+	private setPrayerCompletionFn: ((property: string, value: boolean) => Promise<void>) | null;
 	private weatherService: WeatherService | null;
-	private goalsService: GoalsService | null;
-	private balanceService: BalanceService | null;
 	private saveSettingsFn: (() => Promise<void>) | null;
 	private clockEl: HTMLElement | null = null;
 	private countdownEl: HTMLElement | null = null;
-	private pomodoroTimerEl: HTMLElement | null = null;
 	private contentContainerEl: HTMLElement | null = null;
+	private resizeObserver: ResizeObserver | null = null;
+	private currentLayout: HomeLayout | null = null;
+	private openMarkdownPaths = new Set<string>();
+	private recentClosedNotes: RecentClosedNote[] = [];
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -59,12 +53,8 @@ export class HomeView extends ItemView {
 		prayerService: PrayerService | null,
 		statsEngine: StatsEngine | null,
 		createDailyNoteFn: (() => Promise<void>) | null,
-		pomodoroService: PomodoroService | null,
-		examService: ExamService | null,
-		financeService: FinanceService | null,
+		setPrayerCompletionFn: ((property: string, value: boolean) => Promise<void>) | null,
 		weatherService: WeatherService | null,
-		goalsService: GoalsService | null,
-		balanceService: BalanceService | null,
 		saveSettingsFn: (() => Promise<void>) | null
 	) {
 		super(leaf);
@@ -75,12 +65,8 @@ export class HomeView extends ItemView {
 		this.prayerService = prayerService;
 		this.statsEngine = statsEngine;
 		this.createDailyNoteFn = createDailyNoteFn;
-		this.pomodoroService = pomodoroService;
-		this.examService = examService;
-		this.financeService = financeService;
+		this.setPrayerCompletionFn = setPrayerCompletionFn;
 		this.weatherService = weatherService;
-		this.goalsService = goalsService;
-		this.balanceService = balanceService;
 		this.saveSettingsFn = saveSettingsFn;
 	}
 
@@ -106,18 +92,31 @@ export class HomeView extends ItemView {
 			parent: container,
 		});
 
+		this.openMarkdownPaths = this.collectOpenMarkdownPaths();
 		this.render();
 
-		// Clock + countdown every second
+		if (typeof ResizeObserver !== "undefined") {
+			this.resizeObserver = new ResizeObserver(() => {
+				const nextLayout = this.getLayoutForWidth(container.clientWidth);
+				if (nextLayout !== this.currentLayout) {
+					this.currentLayout = nextLayout;
+					this.render();
+				}
+			});
+			this.resizeObserver.observe(container);
+			this.register(() => {
+				this.resizeObserver?.disconnect();
+				this.resizeObserver = null;
+			});
+		}
+
 		this.registerInterval(
 			window.setInterval(() => {
 				this.updateClock();
 				this.updatePrayerCountdown();
-				this.updatePomodoroTimer();
 			}, 1000)
 		);
 
-		// Full re-render every 5 minutes
 		this.registerInterval(
 			window.setInterval(() => {
 				this.render();
@@ -132,6 +131,14 @@ export class HomeView extends ItemView {
 		this.eventBus.on("stats:recalculated", statsHandler);
 		this.register(() => { this.eventBus.off("stats:recalculated", statsHandler); });
 
+		const frontmatterHandler = (data: { path: string; property: string; value: unknown }) => {
+			if (HOME_PRAYER_FRONTMATTER_KEYS.has(data.property)) {
+				this.render();
+			}
+		};
+		this.eventBus.on("frontmatter:changed", frontmatterHandler);
+		this.register(() => { this.eventBus.off("frontmatter:changed", frontmatterHandler); });
+
 		const weatherHandler = () => { this.render(); };
 		this.eventBus.on("weather:updated", weatherHandler);
 		this.register(() => { this.eventBus.off("weather:updated", weatherHandler); });
@@ -140,38 +147,75 @@ export class HomeView extends ItemView {
 		this.eventBus.on("location:updated", locationHandler);
 		this.register(() => { this.eventBus.off("location:updated", locationHandler); });
 
-		const financeHandler = () => { this.render(); };
-		this.eventBus.on("finance:transaction-added", financeHandler);
-		this.eventBus.on("finance:transaction-deleted", financeHandler);
-		this.eventBus.on("finance:budget-updated", financeHandler);
-		this.register(() => {
-			this.eventBus.off("finance:transaction-added", financeHandler);
-			this.eventBus.off("finance:transaction-deleted", financeHandler);
-			this.eventBus.off("finance:budget-updated", financeHandler);
-		});
-
-		const goalsHandler = () => { this.render(); };
-		this.eventBus.on("goals:updated", goalsHandler);
-		this.register(() => { this.eventBus.off("goals:updated", goalsHandler); });
-
-		const balanceHandler = () => { this.render(); };
-		this.eventBus.on("balance:updated", balanceHandler);
-		this.register(() => { this.eventBus.off("balance:updated", balanceHandler); });
+		this.registerEvent(
+			this.obsidianApp.workspace.on("layout-change", () => {
+				this.handleWorkspaceLayoutChange();
+			})
+		);
 
 		const settingsHandler = () => { this.render(); };
 		this.eventBus.on("settings:changed", settingsHandler);
 		this.register(() => { this.eventBus.off("settings:changed", settingsHandler); });
-
-		const pomodoroHandler = () => { this.render(); };
-		this.eventBus.on("pomodoro:state-changed", pomodoroHandler);
-		this.register(() => { this.eventBus.off("pomodoro:state-changed", pomodoroHandler); });
 	}
 
 	async onClose(): Promise<void> {
+		this.resizeObserver?.disconnect();
+		this.resizeObserver = null;
+		this.currentLayout = null;
 		this.contentContainerEl = null;
 		this.clockEl = null;
 		this.countdownEl = null;
-		this.pomodoroTimerEl = null;
+	}
+
+	private collectOpenMarkdownPaths(): Set<string> {
+		const paths = new Set<string>();
+		this.obsidianApp.workspace.iterateAllLeaves((leaf) => {
+			const view = leaf.view;
+			if (view instanceof MarkdownView && view.file) {
+				paths.add(view.file.path);
+			}
+		});
+		return paths;
+	}
+
+	private addRecentClosedNote(path: string): void {
+		const file = this.obsidianApp.vault.getAbstractFileByPath(path);
+		const fallbackName = path.split("/").pop()?.replace(/\.md$/i, "") || path;
+		const name = file instanceof TFile ? file.basename : fallbackName;
+
+		this.recentClosedNotes = [
+			{ name, path, closedAt: Date.now() },
+			...this.recentClosedNotes.filter((note) => note.path !== path),
+		].slice(0, RECENT_CLOSED_NOTES_LIMIT);
+	}
+
+	private handleWorkspaceLayoutChange(): void {
+		const nextOpenPaths = this.collectOpenMarkdownPaths();
+		let changed = false;
+
+		for (const path of this.openMarkdownPaths) {
+			if (!nextOpenPaths.has(path)) {
+				this.addRecentClosedNote(path);
+				changed = true;
+			}
+		}
+
+		this.openMarkdownPaths = nextOpenPaths;
+
+		if (changed && this.currentLayout === "desktop") {
+			this.render();
+		}
+	}
+
+	private getLayoutForWidth(width: number): HomeLayout {
+		return width >= DESKTOP_HOME_MIN_WIDTH ? "desktop" : "mobile";
+	}
+
+	private getCurrentLayout(): HomeLayout {
+		const containerWidth =
+			(this.contentContainerEl?.parentElement as HTMLElement | null)?.clientWidth ??
+			this.containerEl.clientWidth;
+		return this.getLayoutForWidth(containerWidth);
 	}
 
 	private buildCtx(): HomeViewContext {
@@ -183,21 +227,38 @@ export class HomeView extends ItemView {
 			prayerService: this.prayerService,
 			statsEngine: this.statsEngine,
 			weatherService: this.weatherService,
-			financeService: this.financeService,
-			examService: this.examService,
-			pomodoroService: this.pomodoroService,
-			goalsService: this.goalsService,
-			balanceService: this.balanceService,
+			recentClosedNotes: [...this.recentClosedNotes],
 			saveSettings: this.saveSettingsFn,
 			createDailyNote: this.createDailyNoteFn,
+			setPrayerCompletion: this.setPrayerCompletionFn,
 		};
 	}
 
 	private render(): void {
 		if (!this.contentContainerEl) return;
 		this.contentContainerEl.empty();
+		this.clockEl = null;
+		this.countdownEl = null;
 
 		const ctx = this.buildCtx();
+		const layout = this.getCurrentLayout();
+		this.currentLayout = layout;
+		this.contentContainerEl.classList.toggle("is-desktop", layout === "desktop");
+		this.contentContainerEl.classList.toggle("is-mobile", layout === "mobile");
+
+		if (layout === "desktop") {
+			const result = renderDesktopHome(this.contentContainerEl, ctx, this.settings.homeVisibleSections);
+			this.clockEl = result.clockEl ?? null;
+			this.countdownEl = result.countdownEl ?? null;
+			this.applySectionAnimationIndexes();
+			return;
+		}
+
+		this.renderMobile(this.contentContainerEl, ctx);
+		this.applySectionAnimationIndexes();
+	}
+
+	private renderMobile(parent: HTMLElement, ctx: HomeViewContext): void {
 		let headerRendered = false;
 
 		for (const sectionId of this.settings.homeVisibleSections) {
@@ -205,59 +266,43 @@ export class HomeView extends ItemView {
 				case "clock":
 				case "greeting":
 					if (!headerRendered) {
-						this.clockEl = renderHeaderSection(this.contentContainerEl, ctx, this.settings.homeVisibleSections);
+						this.clockEl = renderHeaderSection(parent, ctx, this.settings.homeVisibleSections);
 						headerRendered = true;
 					}
 					break;
 				case "weather":
-					renderWeatherSection(this.contentContainerEl, ctx);
+					renderWeatherSection(parent, ctx);
 					break;
 				case "prayer":
-					this.countdownEl = renderPrayerSection(this.contentContainerEl, ctx);
-					break;
-				case "ramadan":
-					if (this.settings.ramadanEnabled) renderRamadanSection(this.contentContainerEl, ctx);
+					this.countdownEl = renderPrayerSection(parent, ctx);
 					break;
 				case "navigation":
-					renderNavigationSection(this.contentContainerEl, ctx);
+					renderNavigationSection(parent, ctx);
 					break;
 				case "stats":
-					renderStatsSection(this.contentContainerEl, ctx);
+					renderStatsSection(parent, ctx);
 					break;
 				case "tasks":
-					renderTasksSection(this.contentContainerEl, ctx);
-					break;
-				case "pomodoro":
-					this.pomodoroTimerEl = renderPomodoroSection(this.contentContainerEl, ctx);
-					break;
-				case "exams":
-					renderExamsSection(this.contentContainerEl, ctx);
+					renderTasksSection(parent, ctx);
 					break;
 				case "deadlines":
-					renderDeadlinesSection(this.contentContainerEl, ctx);
-					break;
-				case "goals":
-					renderGoalsSection(this.contentContainerEl, ctx);
-					break;
-				case "balance":
-					renderBalanceSection(this.contentContainerEl, ctx);
-					break;
-				case "finance":
-					renderFinanceSection(this.contentContainerEl, ctx);
+					renderDeadlinesSection(parent, ctx);
 					break;
 				case "projects":
-					renderProjectsSection(this.contentContainerEl, ctx);
+					renderProjectsSection(parent, ctx);
 					break;
 				case "content":
-					renderContentSection(this.contentContainerEl, ctx);
+					renderContentSection(parent, ctx);
 					break;
 				case "footer":
-					renderFooter(this.contentContainerEl, ctx);
+					renderFooter(parent, ctx);
 					break;
 			}
 		}
+	}
 
-		// Stagger animation
+	private applySectionAnimationIndexes(): void {
+		if (!this.contentContainerEl) return;
 		const sections = this.contentContainerEl.querySelectorAll(".umos-home-section, .umos-home-header, .umos-home-footer");
 		sections.forEach((el, i) => {
 			(el as HTMLElement).style.setProperty("--section-index", String(i));
@@ -273,12 +318,6 @@ export class HomeView extends ItemView {
 	private updatePrayerCountdown(): void {
 		if (this.countdownEl) {
 			updatePrayerCountdown(this.countdownEl, this.buildCtx());
-		}
-	}
-
-	private updatePomodoroTimer(): void {
-		if (this.pomodoroTimerEl) {
-			updatePomodoroTimer(this.pomodoroTimerEl, this.buildCtx());
 		}
 	}
 }

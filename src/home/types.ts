@@ -3,22 +3,24 @@ import { EventBus } from "../EventBus";
 import { UmOSSettings, UmOSData } from "../settings/Settings";
 import { PrayerService } from "../religion/prayer/PrayerService";
 import { StatsEngine } from "../stats/StatsEngine";
-import { PomodoroService } from "../productivity/pomodoro/PomodoroService";
-import { ExamService } from "../productivity/exam/ExamService";
-import { FinanceService } from "../finance/FinanceService";
 import { WeatherService } from "../weather/WeatherService";
-import { GoalsService } from "../productivity/goals/GoalsService";
-import { BalanceService } from "../balance/BalanceService";
 
 export interface ActiveContentItem {
 	name: string;
 	path: string;
+	coverUrl?: string;
 	type: string;
 	icon: string;
 	current: number;
 	total: number;
 	unit: string;
 	color: string;
+}
+
+export interface RecentClosedNote {
+	name: string;
+	path: string;
+	closedAt: number;
 }
 
 export interface HomeViewContext {
@@ -29,11 +31,8 @@ export interface HomeViewContext {
 	prayerService: PrayerService | null;
 	statsEngine: StatsEngine | null;
 	weatherService: WeatherService | null;
-	financeService: FinanceService | null;
-	examService: ExamService | null;
-	pomodoroService: PomodoroService | null;
-	goalsService: GoalsService | null;
-	balanceService: BalanceService | null;
+	recentClosedNotes: RecentClosedNote[];
 	saveSettings: (() => Promise<void>) | null;
 	createDailyNote: (() => Promise<void>) | null;
+	setPrayerCompletion: ((property: string, value: boolean) => Promise<void>) | null;
 }

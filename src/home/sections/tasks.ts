@@ -2,150 +2,516 @@ import { setIcon } from "obsidian";
 import { HomeViewContext } from "../types";
 import { createElement } from "../../utils/dom";
 import { TaskService } from "../../productivity/tasks/TaskService";
+import { Task } from "../../productivity/tasks/Task";
+
+const RU_MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function getDailyNotePathForDate(dateISO: string, ctx: HomeViewContext): string {
 	const parts = dateISO.split("-");
 	if (parts.length !== 3) {
 		return `${ctx.settings.dailyNotesPath}/${dateISO}.md`;
 	}
+
 	const [year, month, day] = parts;
 	const format = ctx.settings.dailyNoteFormat || "YYYY-MM-DD";
 	const fileName = format.replace("YYYY", year).replace("MM", month).replace("DD", day);
 	return `${ctx.settings.dailyNotesPath}/${fileName}.md`;
 }
 
-// getDailyNotePathForDate is a private helper — exported only to suppress unused warning;
-// it is not part of the public API.
+// getDailyNotePathForDate is a private helper exported only to suppress an unused warning.
 export { getDailyNotePathForDate };
 
-export function renderTasksSection(parent: HTMLElement, ctx: HomeViewContext): void {
-	const section = createElement("div", {
-		cls: "umos-home-section umos-home-section-anim",
+function getTaskKey(task: Pick<Task, "filePath" | "lineNumber">): string {
+	return `${task.filePath}:${task.lineNumber}`;
+}
+
+function getTodayIso(): string {
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, "0");
+	const day = String(now.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+}
+
+function isTaskActive(task: Pick<Task, "status">): boolean {
+	return task.status !== "done" && task.status !== "cancelled";
+}
+
+function isTaskDueToday(task: Pick<Task, "dueDate">): boolean {
+	return Boolean(task.dueDate && task.dueDate === getTodayIso());
+}
+
+function hasDoingAncestor(task: Task): boolean {
+	let current = task.parent as Task | null;
+	while (current) {
+		if (isTaskActive(current) && current.status === "doing") {
+			return true;
+		}
+		current = current.parent as Task | null;
+	}
+	return false;
+}
+
+function cleanTaskDescription(description: string): string {
+	return description
+		.replace(/\uFFFD/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function pluralize(count: number, one: string, few: string, many: string): string {
+	const abs = Math.abs(count) % 100;
+	const last = abs % 10;
+
+	if (abs > 10 && abs < 20) return many;
+	if (last > 1 && last < 5) return few;
+	if (last === 1) return one;
+	return many;
+}
+
+function formatTaskDate(dateISO: string): string {
+	const parts = dateISO.split("-");
+	if (parts.length !== 3) return dateISO;
+
+	const year = Number(parts[0]);
+	const monthIndex = Number(parts[1]) - 1;
+	const day = Number(parts[2]);
+
+	if (
+		Number.isNaN(year) ||
+		Number.isNaN(monthIndex) ||
+		Number.isNaN(day) ||
+		monthIndex < 0 ||
+		monthIndex > 11
+	) {
+		return dateISO;
+	}
+
+	const currentYear = new Date().getFullYear();
+	const yearSuffix = year !== currentYear ? ` '${String(year).slice(-2)}` : "";
+	return `${day} ${RU_MONTH_SHORT[monthIndex]}${yearSuffix}`;
+}
+
+function getTaskSourceLabel(filePath: string): string {
+	const normalized = filePath.replace(/\\/g, "/").replace(/\.md$/i, "");
+	const parts = normalized.split("/").filter(Boolean);
+
+	if (parts.length === 0) return "note";
+	if (parts.length === 1) return parts[0];
+
+	return `${parts[parts.length - 2]} / ${parts[parts.length - 1]}`;
+}
+
+function getTaskMetaLabel(task: Task, isOverdueTask: boolean): { text: string; cls: string } {
+	if (isOverdueTask) {
+		return { text: "overdue", cls: "is-overdue" };
+	}
+
+	if (isTaskDueToday(task)) {
+		return { text: "today", cls: "is-today" };
+	}
+
+	if (task.status === "doing") {
+		return { text: "in progress", cls: "is-progress" };
+	}
+
+	return { text: "to do", cls: "is-queued" };
+}
+
+function getHeroSubtitle(todayCount: number, overdueCount: number, inProgressCount: number): string {
+	if (todayCount === 0 && inProgressCount === 0) {
+		return "Quiet today - no active tasks";
+	}
+
+	if (overdueCount > 0) {
+		const fragments: string[] = [
+			`${overdueCount} ${pluralize(overdueCount, "overdue task", "overdue tasks", "overdue tasks")}`,
+		];
+		const dueTodayOnly = todayCount - overdueCount;
+		if (dueTodayOnly > 0) fragments.push(`${dueTodayOnly} for today`);
+		if (inProgressCount > 0) fragments.push(`${inProgressCount} active`);
+		return fragments.join(" · ");
+	}
+
+	if (todayCount > 0 && inProgressCount > 0) {
+		return `${todayCount} for today · ${inProgressCount} active`;
+	}
+
+	if (todayCount > 0) {
+		return `${todayCount} ${pluralize(todayCount, "task", "tasks", "tasks")} for today`;
+	}
+
+	return `${inProgressCount} ${pluralize(inProgressCount, "task already active", "tasks already active", "tasks already active")}`;
+}
+
+function getTasksDashboardPath(ctx: HomeViewContext): string {
+	const cards = ctx.settings.homeNavCards || [];
+	const configured = cards.find((card) => {
+		const name = card.name.toLowerCase();
+		const path = card.path.toLowerCase();
+		return name.includes("task") || path.includes("tasks");
+	});
+
+	return configured?.path || "05 Dashboards/Tasks";
+}
+
+function openTasksDashboard(ctx: HomeViewContext): void {
+	void ctx.app.workspace.openLinkText(getTasksDashboardPath(ctx), "", false);
+}
+
+function addTaskOpenBehavior(el: HTMLElement, ctx: HomeViewContext): void {
+	const onOpen = () => openTasksDashboard(ctx);
+
+	el.addEventListener("click", onOpen);
+	el.addEventListener("keydown", (event) => {
+		if (event.key === "Enter" || event.key === " ") {
+			event.preventDefault();
+			onOpen();
+		}
+	});
+}
+
+function setTaskStatusIcon(el: HTMLElement, task: Task, isOverdueTask: boolean): void {
+	if (isOverdueTask) setIcon(el, "alert-triangle");
+	else if (task.status === "doing") setIcon(el, "circle");
+	else if (task.status === "done") setIcon(el, "check-circle-2");
+	else if (task.status === "cancelled") setIcon(el, "circle-x");
+	else setIcon(el, "circle");
+}
+
+function renderMetric(
+	parent: HTMLElement,
+	label: string,
+	value: number,
+	icon: string,
+	tone: string,
+): void {
+	const metric = createElement("div", { cls: `umos-home-tasks-metric ${tone}`, parent });
+	const iconEl = createElement("span", { cls: "umos-home-tasks-metric-icon", parent: metric });
+	setIcon(iconEl, icon);
+
+	const content = createElement("div", { cls: "umos-home-tasks-metric-content", parent: metric });
+	createElement("span", {
+		cls: "umos-home-tasks-metric-value",
+		text: String(value),
+		parent: content,
+	});
+	createElement("span", {
+		cls: "umos-home-tasks-metric-label",
+		text: label,
+		parent: content,
+	});
+}
+
+function renderTaskSubtasks(
+	parent: HTMLElement,
+	subtasks: Task[],
+	overdueKeys: Set<string>,
+	ctx: HomeViewContext,
+	depth = 1,
+): void {
+	if (subtasks.length === 0) {
+		return;
+	}
+
+	const list = createElement("div", {
+		cls: "umos-home-task-children",
+		attr: { "data-depth": String(depth) },
 		parent,
 	});
 
-	// Header row: title on left, counter chip on right (filled after data loads)
-	const headerRow = createElement("div", { cls: "umos-home-tasks-header", parent: section });
-	createElement("div", {
-		cls: "umos-home-section-title",
-		text: "Задачи на сегодня",
-		parent: headerRow,
-	});
-	const counterChip = createElement("span", { cls: "umos-home-tasks-counter", parent: headerRow });
+	for (const subtask of subtasks) {
+		const isOverdueTask = overdueKeys.has(getTaskKey(subtask));
+		let rowCls = "umos-home-task-child";
+		if (isOverdueTask) rowCls += " is-overdue";
+		if (subtask.status === "doing") rowCls += " is-doing";
+		if (subtask.status === "done") rowCls += " is-done";
+		if (subtask.status === "cancelled") rowCls += " is-cancelled";
 
-	// Progress bar wrapper (filled after data loads)
-	const progressWrap = createElement("div", { cls: "umos-home-tasks-progress-wrap", parent: section });
+		const item = createElement("div", {
+			cls: "umos-home-task-child-wrap",
+			attr: { "data-depth": String(depth) },
+			parent: list,
+		});
+		item.style.setProperty("--umos-home-task-child-depth", String(depth));
 
-	const taskService = new TaskService(ctx.app);
+		const row = createElement("div", {
+			cls: rowCls,
+			attr: { role: "button", tabindex: "0" },
+			parent: item,
+		});
+		row.style.setProperty("--umos-home-task-child-depth", String(depth));
 
-	taskService.getUrgentTasks().then(({ overdue, dueToday }) => {
-		const allTasks = [...overdue, ...dueToday];
+		const statusEl = createElement("span", {
+			cls: `umos-home-task-child-status is-${isOverdueTask ? "overdue" : subtask.status}`,
+			parent: row,
+		});
+		setTaskStatusIcon(statusEl, subtask, isOverdueTask);
 
-		if (allTasks.length === 0) {
-			createElement("div", {
-				cls: "umos-home-empty",
-				text: "Нет срочных задач",
-				parent: section,
-			});
-			return;
-		}
-
-		const doneCount = allTasks.filter(t => t.status === "done").length;
-		const percent = allTasks.length > 0 ? Math.round((doneCount / allTasks.length) * 100) : 0;
-
-		// Counter chip
-		counterChip.setText(`${doneCount} / ${allTasks.length}`);
-		if (doneCount === allTasks.length) counterChip.addClass("is-complete");
-
-		// Progress bar
-		const progressBar = createElement("div", { cls: "umos-home-tasks-progress-bar", parent: progressWrap });
-		const fill = createElement("div", { cls: "umos-home-tasks-progress-fill", parent: progressBar });
-		fill.style.width = `${percent}%`;
-		const infoRow = createElement("div", { cls: "umos-home-tasks-progress-info", parent: progressWrap });
-		if (overdue.length > 0) {
-			createElement("span", {
-				cls: "umos-home-tasks-progress-overdue",
-				text: `просрочено: ${overdue.length}`,
-				parent: infoRow,
-			});
-		} else {
-			infoRow.createSpan(); // spacer
-		}
+		const body = createElement("div", { cls: "umos-home-task-child-body", parent: row });
 		createElement("span", {
-			cls: "umos-home-tasks-progress-text",
-			text: `${percent}%`,
-			parent: infoRow,
+			cls: "umos-home-task-child-title",
+			text: cleanTaskDescription(subtask.description),
+			parent: body,
 		});
 
-		// Overdue alert strip
-		if (overdue.length > 0) {
-			const alert = createElement("div", { cls: "umos-home-tasks-alert", parent: section });
-			const iconEl = alert.createSpan({ cls: "umos-home-tasks-alert-icon" });
-			setIcon(iconEl, "alert-triangle");
+		if (subtask.dueDate) {
 			createElement("span", {
-				cls: "umos-home-tasks-alert-text",
-				text: `${overdue.length} ${overdue.length === 1 ? "задача просрочена" : "задач просрочено"}`,
-				parent: alert,
+				cls: `umos-home-task-child-date${isOverdueTask ? " is-overdue" : ""}`,
+				text: formatTaskDate(subtask.dueDate),
+				parent: row,
 			});
 		}
 
-		// Task list
-		const list = createElement("div", { cls: "umos-home-tasks-list", parent: section });
-
-		const displayTasks = allTasks.slice(0, 7);
-		for (const task of displayTasks) {
-			const isOverdueTask = overdue.includes(task);
-
-			let taskCls = "umos-home-task";
-			if (task.status === "done") taskCls += " umos-home-task-done";
-			if (task.status === "doing") taskCls += " umos-home-task-progress";
-			if (isOverdueTask) taskCls += " umos-home-task-overdue";
-
-			const taskEl = createElement("div", { cls: taskCls, parent: list });
-
-			// Status icon
-			const statusEl = taskEl.createSpan({ cls: `umos-home-task-status is-${task.status}` });
-			if (task.status === "done") setIcon(statusEl, "check-circle-2");
-			else if (task.status === "doing") setIcon(statusEl, "circle-dot");
-			else if (task.status === "cancelled") setIcon(statusEl, "circle-x");
-			else setIcon(statusEl, "circle");
-
-			// Priority dot
-			if (task.priority !== "none") {
-				createElement("span", {
-					cls: `umos-task-priority-dot priority-${task.priority}`,
-					parent: taskEl,
-				});
+		row.addEventListener("click", (event) => {
+			event.stopPropagation();
+			openTasksDashboard(ctx);
+		});
+		row.addEventListener("keydown", (event) => {
+			if (event.key === "Enter" || event.key === " ") {
+				event.preventDefault();
+				event.stopPropagation();
+				openTasksDashboard(ctx);
 			}
+		});
 
-			// Description
-			const cleanDesc = task.description.replace(/[⏫🔼🔽\uFFFD]/g, '').replace(/\(priority:\w+\)/g, '').trim();
+		if (subtask.subtasks.length > 0) {
+			renderTaskSubtasks(item, subtask.subtasks, overdueKeys, ctx, depth + 1);
+		}
+	}
+}
+
+function renderTaskItems(
+	parent: HTMLElement,
+	tasks: Task[],
+	overdueKeys: Set<string>,
+	ctx: HomeViewContext,
+	limit = 5,
+): void {
+	const list = createElement("div", { cls: "umos-home-task-stream-list", parent });
+	const displayTasks = tasks.slice(0, limit);
+
+	for (const task of displayTasks) {
+		const isOverdueTask = overdueKeys.has(getTaskKey(task));
+		const meta = getTaskMetaLabel(task, isOverdueTask);
+
+		let cardCls = "umos-home-task-card";
+		if (isOverdueTask) cardCls += " is-overdue";
+		if (task.status === "doing") cardCls += " is-doing";
+		if (task.priority !== "none") cardCls += ` has-priority-${task.priority}`;
+
+		const taskEl = createElement("div", {
+			cls: cardCls,
+			attr: { role: "button", tabindex: "0" },
+			parent: list,
+		});
+
+		const statusEl = createElement("span", {
+			cls: `umos-home-task-card-status is-${isOverdueTask ? "overdue" : task.status}`,
+			parent: taskEl,
+		});
+		setTaskStatusIcon(statusEl, task, isOverdueTask);
+
+		const body = createElement("div", { cls: "umos-home-task-card-body", parent: taskEl });
+		const topRow = createElement("div", { cls: "umos-home-task-card-top", parent: body });
+		const titleWrap = createElement("div", { cls: "umos-home-task-card-title-wrap", parent: topRow });
+
+		if (task.priority !== "none") {
 			createElement("span", {
-				cls: "umos-home-task-text",
-				text: cleanDesc,
-				parent: taskEl,
-			});
-
-			// Due date badge
-			if (task.dueDate) {
-				createElement("span", {
-					cls: `umos-home-task-due${isOverdueTask ? " is-overdue" : ""}`,
-					text: task.dueDate,
-					parent: taskEl,
-				});
-			}
-
-			// Click → open source file
-			taskEl.addEventListener("click", () => {
-				ctx.app.workspace.openLinkText(task.filePath, task.filePath, false);
+				cls: `umos-home-task-priority-dot priority-${task.priority}`,
+				parent: titleWrap,
 			});
 		}
 
-		if (allTasks.length > 7) {
-			createElement("div", {
-				cls: "umos-home-more",
-				text: `+ ещё ${allTasks.length - 7} задач`,
-				parent: section,
+		createElement("span", {
+			cls: "umos-home-task-card-title",
+			text: cleanTaskDescription(task.description),
+			parent: titleWrap,
+		});
+
+		if (task.dueDate) {
+			createElement("span", {
+				cls: `umos-home-task-card-date${isOverdueTask ? " is-overdue" : ""}`,
+				text: formatTaskDate(task.dueDate),
+				parent: topRow,
+			});
+		}
+
+		const metaRow = createElement("div", { cls: "umos-home-task-card-meta", parent: body });
+		createElement("span", {
+			cls: `umos-home-task-card-pill ${meta.cls}`,
+			text: meta.text,
+			parent: metaRow,
+		});
+		createElement("span", {
+			cls: "umos-home-task-card-source",
+			text: getTaskSourceLabel(task.filePath),
+			parent: metaRow,
+		});
+
+		if (task.status === "doing" && task.subtasks.length > 0) {
+			renderTaskSubtasks(body, task.subtasks, overdueKeys, ctx);
+		}
+
+		const arrowEl = createElement("span", { cls: "umos-home-task-card-arrow", parent: taskEl });
+		setIcon(arrowEl, "arrow-up-right");
+
+		addTaskOpenBehavior(taskEl, ctx);
+	}
+
+	if (tasks.length > limit) {
+		createElement("div", {
+			cls: "umos-home-task-stream-more",
+			text: `${tasks.length - limit} more ${pluralize(tasks.length - limit, "task", "tasks", "tasks")}`,
+			parent,
+		});
+	}
+}
+
+function renderTaskStream(
+	parent: HTMLElement,
+	options: {
+		title: string;
+		caption: string;
+		count: number;
+		icon: string;
+		tone: "urgent" | "progress";
+		tasks: Task[];
+		overdueKeys: Set<string>;
+		ctx: HomeViewContext;
+		emptyText?: string;
+		limit?: number;
+	},
+): void {
+	const stream = createElement("div", {
+		cls: `umos-home-task-stream is-${options.tone}`,
+		parent,
+	});
+
+	const head = createElement("div", { cls: "umos-home-task-stream-head", parent: stream });
+	const titleWrap = createElement("div", { cls: "umos-home-task-stream-title-wrap", parent: head });
+	const iconEl = createElement("span", { cls: "umos-home-task-stream-icon", parent: titleWrap });
+	setIcon(iconEl, options.icon);
+
+	const copy = createElement("div", { cls: "umos-home-task-stream-copy", parent: titleWrap });
+	createElement("div", {
+		cls: "umos-home-task-stream-title",
+		text: options.title,
+		parent: copy,
+	});
+	createElement("div", {
+		cls: "umos-home-task-stream-caption",
+		text: options.caption,
+		parent: copy,
+	});
+
+	createElement("span", {
+		cls: "umos-home-task-stream-count",
+		text: String(options.count),
+		parent: head,
+	});
+
+	if (options.tasks.length === 0) {
+		const empty = createElement("div", { cls: "umos-home-task-stream-empty", parent: stream });
+		const emptyIcon = createElement("span", { cls: "umos-home-task-stream-empty-icon", parent: empty });
+		setIcon(emptyIcon, options.tone === "urgent" ? "calendar" : "circle-dot");
+		createElement("span", {
+			cls: "umos-home-task-stream-empty-text",
+			text: options.emptyText ?? "Empty",
+			parent: empty,
+		});
+		return;
+	}
+
+	renderTaskItems(stream, options.tasks, options.overdueKeys, options.ctx, options.limit ?? 5);
+}
+
+export function renderTasksSection(parent: HTMLElement, ctx: HomeViewContext): void {
+	const section = createElement("div", {
+		cls: "umos-home-section umos-home-section-anim umos-home-tasks-section",
+		parent,
+	});
+	const taskService = new TaskService(ctx.app);
+
+	taskService.getHomeTasks().then(({ overdue, dueToday, inProgress }) => {
+		const overdueKeys = new Set(overdue.map(getTaskKey));
+		const urgentTasks = [...overdue, ...dueToday];
+		const sortedInProgress = [...inProgress].sort((a, b) => {
+			const dueCompare = (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31");
+			if (dueCompare !== 0) return dueCompare;
+
+			const fileCompare = a.filePath.localeCompare(b.filePath);
+			if (fileCompare !== 0) return fileCompare;
+
+			return a.lineNumber - b.lineNumber;
+		});
+		const visibleInProgress = sortedInProgress.filter((task) => !hasDoingAncestor(task));
+
+		const hero = createElement("div", { cls: "umos-home-tasks-hero", parent: section });
+		const heroCopy = createElement("div", { cls: "umos-home-tasks-hero-copy", parent: hero });
+		createElement("div", {
+			cls: "umos-home-tasks-kicker",
+			text: overdue.length > 0 ? "Needs attention" : "Daily Focus",
+			parent: heroCopy,
+		});
+		createElement("div", {
+			cls: "umos-home-section-title",
+			text: "Tasks",
+			parent: heroCopy,
+		});
+		createElement("div", {
+			cls: "umos-home-tasks-subtitle",
+			text: getHeroSubtitle(urgentTasks.length, overdue.length, sortedInProgress.length),
+			parent: heroCopy,
+		});
+
+		const totalCard = createElement("div", { cls: "umos-home-tasks-total", parent: hero });
+		createElement("span", {
+			cls: "umos-home-tasks-total-value",
+			text: String(urgentTasks.length + sortedInProgress.length),
+			parent: totalCard,
+		});
+		createElement("span", {
+			cls: "umos-home-tasks-total-label",
+			text: "active",
+			parent: totalCard,
+		});
+
+		const metrics = createElement("div", { cls: "umos-home-tasks-metrics", parent: section });
+		renderMetric(metrics, "today", urgentTasks.length, "calendar", "is-today");
+		renderMetric(metrics, "overdue", overdue.length, "flame", "is-overdue");
+		renderMetric(metrics, "in progress", visibleInProgress.length, "play", "is-progress");
+
+		renderTaskStream(section, {
+			title: "Today",
+			caption:
+				overdue.length > 0
+					? "Handle urgent items first"
+					: urgentTasks.length > 0
+						? "What needs to be finished today"
+						: "No deadlines today",
+			count: urgentTasks.length,
+			icon: overdue.length > 0 ? "flame" : "calendar",
+			tone: "urgent",
+			tasks: urgentTasks,
+			overdueKeys,
+			ctx,
+			emptyText: "Nothing urgent today",
+			limit: 5,
+		});
+
+		if (visibleInProgress.length > 0 || urgentTasks.length === 0) {
+			renderTaskStream(section, {
+				title: "In Progress",
+				caption: "Started work waiting for the next step",
+				count: visibleInProgress.length,
+				icon: "play",
+				tone: "progress",
+				tasks: visibleInProgress,
+				overdueKeys,
+				ctx,
+				emptyText: "No active work right now",
+				limit: 4,
 			});
 		}
 	});

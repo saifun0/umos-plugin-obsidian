@@ -1,6 +1,11 @@
 import { App, Modal, Setting } from 'obsidian';
 import { Task, TaskStatus } from './Task';
 
+interface SuggestedTag {
+    name: string;
+    count: number;
+}
+
 export class TaskEditorModal extends Modal {
     private task: Task;
     private onSave: (updatedTask: Task, subtasks: string[]) => void;
@@ -19,14 +24,14 @@ export class TaskEditorModal extends Modal {
     onOpen() {
         const { contentEl } = this;
         contentEl.empty();
-        contentEl.createEl('h2', { text: this.isCreateMode ? 'Новая задача' : 'Редактировать задачу' });
+        contentEl.createEl('h2', { text: this.isCreateMode ? 'New Task' : 'Edit Task' });
 
         // Description
         new Setting(contentEl)
-            .setName('Описание')
+            .setName('Description')
             .addText(text => {
                 text.setValue(this.task.description === this.task.rawText && this.isCreateMode ? '' : this.task.description)
-                    .setPlaceholder('Введите описание задачи...')
+                    .setPlaceholder('Enter a task description...')
                     .onChange(value => {
                         this.task.description = value;
                     });
@@ -35,13 +40,13 @@ export class TaskEditorModal extends Modal {
 
         // Status
         new Setting(contentEl)
-            .setName('Статус')
+            .setName('Status')
             .addDropdown(dropdown => {
                 dropdown
-                    .addOption('todo', 'К выполнению')
-                    .addOption('doing', 'В процессе')
-                    .addOption('done', 'Выполнено')
-                    .addOption('cancelled', 'Отменено')
+                    .addOption('todo', 'To Do')
+                    .addOption('doing', 'In Progress')
+                    .addOption('done', 'Done')
+                    .addOption('cancelled', 'Cancelled')
                     .setValue(this.task.status)
                     .onChange(value => {
                         this.task.status = value as TaskStatus;
@@ -50,13 +55,13 @@ export class TaskEditorModal extends Modal {
 
         // Priority
         new Setting(contentEl)
-            .setName('Приоритет')
+            .setName('Priority')
             .addDropdown(dropdown => {
                 dropdown
-                    .addOption('none', 'Нет')
-                    .addOption('low', 'Низкий 🔽')
-                    .addOption('medium', 'Средний 🔼')
-                    .addOption('high', 'Высокий ⏫')
+                    .addOption('none', 'None')
+                    .addOption('low', 'Low 🔽')
+                    .addOption('medium', 'Medium 🔼')
+                    .addOption('high', 'High ⏫')
                     .setValue(this.task.priority)
                     .onChange(value => {
                         this.task.priority = value as 'high' | 'medium' | 'low' | 'none';
@@ -68,7 +73,7 @@ export class TaskEditorModal extends Modal {
 
         // Due Date
         new Setting(contentEl)
-            .setName('Срок')
+            .setName('Due')
             .addText(text => {
                 text.inputEl.type = 'date';
                 text.setValue(this.task.dueDate || '')
@@ -79,7 +84,7 @@ export class TaskEditorModal extends Modal {
 
         // Start Date
         new Setting(contentEl)
-            .setName('Дата начала')
+            .setName('Start Date')
             .addText(text => {
                 text.inputEl.type = 'date';
                 text.setValue(this.task.startDate || '')
@@ -90,7 +95,7 @@ export class TaskEditorModal extends Modal {
 
         // Scheduled Date
         new Setting(contentEl)
-            .setName('Запланировано')
+            .setName('Scheduled')
             .addText(text => {
                 text.inputEl.type = 'date';
                 text.setValue(this.task.scheduledDate || '')
@@ -101,8 +106,8 @@ export class TaskEditorModal extends Modal {
 
         // Done Date
         new Setting(contentEl)
-            .setName('Дата завершения')
-            .setDesc('Проставляется автоматически при выполнении задачи')
+            .setName('Completion Date')
+            .setDesc('Set automatically when the task is completed')
             .addText(text => {
                 text.inputEl.type = 'date';
                 text.setValue(this.task.doneDate || '')
@@ -113,7 +118,7 @@ export class TaskEditorModal extends Modal {
 
         // Recurrence
         new Setting(contentEl)
-            .setName('Повторение')
+            .setName('Recurrence')
             .setDesc('daily, weekly, monthly, every N days')
             .addText(text => {
                 text.setValue(this.task.recurrence || '')
@@ -125,11 +130,11 @@ export class TaskEditorModal extends Modal {
 
         // Subtasks
         const subtasksHeader = contentEl.createDiv({ cls: 'umos-modal-subtasks-header' });
-        subtasksHeader.createEl('span', { text: 'Подзадачи', cls: 'umos-modal-subtasks-title' });
+        subtasksHeader.createEl('span', { text: 'Subtasks', cls: 'umos-modal-subtasks-title' });
 
         if (!this.isCreateMode && this.task.subtasks.length > 0) {
             subtasksHeader.createEl('span', {
-                text: `(${this.task.subtasks.length} существующих)`,
+                text: `(${this.task.subtasks.length} existing)`,
                 cls: 'umos-modal-subtasks-existing',
             });
         }
@@ -143,7 +148,7 @@ export class TaskEditorModal extends Modal {
                 const input = row.createEl('input', { cls: 'umos-modal-subtask-input' });
                 (input as HTMLInputElement).type = 'text';
                 (input as HTMLInputElement).value = desc;
-                (input as HTMLInputElement).placeholder = 'Описание подзадачи...';
+                (input as HTMLInputElement).placeholder = 'Subtask description...';
                 input.addEventListener('input', () => {
                     this.pendingSubtasks[i] = (input as HTMLInputElement).value;
                 });
@@ -158,7 +163,7 @@ export class TaskEditorModal extends Modal {
         renderSubtasks();
 
         const addSubtaskBtn = contentEl.createEl('button', {
-            text: '+ Добавить подзадачу',
+            text: '+ Add Subtask',
             cls: 'umos-modal-subtask-add',
         });
         addSubtaskBtn.addEventListener('click', () => {
@@ -173,7 +178,7 @@ export class TaskEditorModal extends Modal {
         const actionsSetting = new Setting(contentEl)
             .addButton(button => {
                 button
-                    .setButtonText(this.isCreateMode ? 'Создать' : 'Сохранить')
+                    .setButtonText(this.isCreateMode ? 'Create' : 'Save')
                     .setCta()
                     .onClick(() => {
                         if (!this.task.description.trim()) return;
@@ -186,7 +191,7 @@ export class TaskEditorModal extends Modal {
         if (!this.isCreateMode && this.onDelete) {
             actionsSetting.addButton(button => {
                 button
-                    .setButtonText('Удалить')
+                    .setButtonText('Delete')
                     .setWarning()
                     .onClick(() => {
                         this.onDelete!(this.task);
@@ -200,7 +205,7 @@ export class TaskEditorModal extends Modal {
 
     private renderTagsField(container: HTMLElement): void {
         const setting = new Setting(container)
-            .setName('Теги');
+            .setName('Tags');
 
         const fieldWrap = setting.controlEl.createDiv({ cls: 'umos-tag-field-wrap' });
 
@@ -231,7 +236,7 @@ export class TaskEditorModal extends Modal {
         const inputWrap = fieldWrap.createDiv({ cls: 'umos-tag-input-wrap' });
         const input = inputWrap.createEl('input', {
             cls: 'umos-tag-input',
-            attr: { type: 'text', placeholder: 'Добавить тег…' },
+            attr: { type: 'text', placeholder: 'Add tag…' },
         }) as HTMLInputElement;
 
         const dropdown = inputWrap.createDiv({ cls: 'umos-tag-dropdown' });
@@ -251,33 +256,45 @@ export class TaskEditorModal extends Modal {
             dropdown.style.display = 'none';
         };
 
+        const createSuggestionOption = (suggestion: SuggestedTag) => {
+            const opt = dropdown.createDiv({ cls: 'umos-tag-dropdown-item' });
+            opt.setAttribute('tabindex', '0');
+            opt.createSpan({ cls: 'umos-tag-dropdown-hash', text: '#' });
+            opt.createSpan({ cls: 'umos-tag-dropdown-name', text: suggestion.name });
+            opt.createSpan({ cls: 'umos-tag-dropdown-count', text: String(suggestion.count) });
+            opt.addEventListener('mousedown', (e) => { e.preventDefault(); addTag(suggestion.name); });
+        };
+
+        const createCreateOption = (tag: string) => {
+            const opt = dropdown.createDiv({ cls: 'umos-tag-dropdown-item umos-tag-dropdown-create' });
+            opt.setAttribute('tabindex', '0');
+            opt.textContent = `+ \u0421\u043E\u0437\u0434\u0430\u0442\u044C "#${tag}"`;
+            opt.addEventListener('mousedown', (e) => { e.preventDefault(); addTag(tag); });
+        };
+
         const updateDropdown = (query: string) => {
             dropdown.empty();
-            const q = query.toLowerCase().replace(/^tasks\//, '').replace(/^#/, '');
-            if (!q) { dropdown.style.display = 'none'; return; }
-
+            const q = query.toLowerCase().replace(/^tasks\//, '').replace(/^#/, '').trim();
             const existing = displayTags();
-            const matches = suggestions.filter(s =>
-                s.toLowerCase().includes(q) && !existing.includes(s)
-            ).slice(0, 8);
+            const existingLower = new Set(existing.map(t => t.toLowerCase()));
+            const matches = suggestions
+                .filter(s => !existingLower.has(s.name.toLowerCase()))
+                .filter(s => !q || s.name.toLowerCase().includes(q))
+                .slice(0, q ? 8 : suggestions.length);
 
-            if (matches.length === 0 && !existing.includes(q)) {
-                // "Create" option
-                const opt = dropdown.createDiv({ cls: 'umos-tag-dropdown-item umos-tag-dropdown-create' });
-                opt.textContent = `+ Создать "#${q}"`;
-                opt.addEventListener('mousedown', (e) => { e.preventDefault(); addTag(q); });
+            if (!q) {
+                for (const m of matches) createSuggestionOption(m);
+                dropdown.style.display = matches.length > 0 ? 'block' : 'none';
+                return;
+            }
+
+            if (matches.length === 0 && !existingLower.has(q)) {
+                createCreateOption(q);
             } else {
-                for (const m of matches) {
-                    const opt = dropdown.createDiv({ cls: 'umos-tag-dropdown-item' });
-                    opt.createSpan({ cls: 'umos-tag-dropdown-hash', text: '#' });
-                    opt.createSpan({ text: m });
-                    opt.addEventListener('mousedown', (e) => { e.preventDefault(); addTag(m); });
-                }
+                for (const m of matches) createSuggestionOption(m);
                 // Also offer creating the typed value if not exact match
-                if (q && !matches.map(m => m.toLowerCase()).includes(q.toLowerCase()) && !existing.includes(q)) {
-                    const opt = dropdown.createDiv({ cls: 'umos-tag-dropdown-item umos-tag-dropdown-create' });
-                    opt.textContent = `+ Создать "#${q}"`;
-                    opt.addEventListener('mousedown', (e) => { e.preventDefault(); addTag(q); });
+                if (q && !matches.some(m => m.name.toLowerCase() === q) && !existingLower.has(q)) {
+                    createCreateOption(q);
                 }
             }
 
@@ -316,22 +333,24 @@ export class TaskEditorModal extends Modal {
             if (e.key === 'Escape')    { dropdown.style.display = 'none'; input.focus(); }
         });
 
-        dropdown.querySelectorAll('.umos-tag-dropdown-item').forEach(el => (el as HTMLElement).setAttribute('tabindex', '0'));
     }
 
     /** Collect only tasks/* tags from the vault metadata cache, stripped of the tasks/ prefix */
-    private getSuggestedTags(): string[] {
+    private getSuggestedTags(): SuggestedTag[] {
         const cache = this.app.metadataCache as any;
         const all: Record<string, number> = typeof cache.getTags === 'function' ? cache.getTags() : {};
-        const set = new Set<string>();
-        for (const tag of Object.keys(all)) {
+        const map = new Map<string, number>();
+        for (const [tag, count] of Object.entries(all)) {
             const clean = tag.replace(/^#/, '');
             // Only include tags that actually start with tasks/
             if (clean.startsWith('tasks/')) {
-                set.add(clean.slice('tasks/'.length));
+                const name = clean.slice('tasks/'.length);
+                map.set(name, (map.get(name) ?? 0) + count);
             }
         }
-        return [...set].sort();
+        return [...map.entries()]
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
     }
 
     onClose() {

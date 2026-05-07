@@ -31,10 +31,10 @@ export class DailyNavWidget extends BaseWidget {
 			parent: this.containerEl,
 		});
 
-		// ← Назад
+		// ← Back
 		const prevBtn = createElement("button", {
 			cls: "umos-daily-nav-btn",
-			text: "← Вчера",
+			text: "← Yesterday",
 			parent: wrapper,
 		});
 		prevBtn.addEventListener("click", () => {
@@ -42,10 +42,10 @@ export class DailyNavWidget extends BaseWidget {
 			this.navigateTo(prev);
 		});
 
-		// Текущая дата
+		//
 		const dateObj = new Date(currentDate + "T00:00:00");
-		const dayName = dateObj.toLocaleDateString("ru-RU", { weekday: "short" });
-		const formatted = dateObj.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+		const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
+		const formatted = dateObj.toLocaleDateString("en-US", { day: "numeric", month: "short" });
 
 		createElement("span", {
 			cls: "umos-daily-nav-date",
@@ -53,10 +53,10 @@ export class DailyNavWidget extends BaseWidget {
 			parent: wrapper,
 		});
 
-		// → Вперёд
+		// →
 		const nextBtn = createElement("button", {
 			cls: "umos-daily-nav-btn",
-			text: "Завтра →",
+			text: "Tomorrow →",
 			parent: wrapper,
 		});
 		nextBtn.addEventListener("click", () => {
@@ -78,7 +78,7 @@ export class DailyNavWidget extends BaseWidget {
 			if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
 		}
 
-		// Попробуем извлечь из имени файла
+		//   of
 		const match = file.basename.match(/(\d{4})-(\d{2})-(\d{2})/);
 		if (match) return `${match[1]}-${match[2]}-${match[3]}`;
 

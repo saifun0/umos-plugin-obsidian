@@ -1,9 +1,9 @@
 /**
- * Утилиты для создания DOM-элементов.
+ *    DOM-.
  */
 
 /**
- * Создаёт HTML-элемент с указанными параметрами.
+ *  HTML-   parameters.
  */
 export function createElement<K extends keyof HTMLElementTagNameMap>(
 	tag: K,
@@ -49,7 +49,7 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
 }
 
 /**
- * Создаёт SVG-элемент.
+ *  SVG-.
  */
 export function createSvgElement(
 	tag: string,
@@ -72,7 +72,7 @@ export function createSvgElement(
 }
 
 /**
- * Очищает содержимое элемента.
+ *   .
  */
 export function clearElement(el: HTMLElement): void {
 	while (el.firstChild) {
@@ -81,7 +81,7 @@ export function clearElement(el: HTMLElement): void {
 }
 
 /**
- * Создаёт skeleton-loader (placeholder при загрузке).
+ *  skeleton-loader (placeholder  ).
  */
 export function createSkeletonLoader(
 	parent: HTMLElement,
@@ -103,7 +103,7 @@ export function createSkeletonLoader(
 }
 
 /**
- * Создаёт сообщение об ошибке.
+ *    .
  */
 export function createErrorMessage(
 	parent: HTMLElement,
@@ -117,7 +117,7 @@ export function createErrorMessage(
 }
 
 /**
- * Создаёт информационное сообщение.
+ *   .
  */
 export function createInfoMessage(
 	parent: HTMLElement,
@@ -131,7 +131,7 @@ export function createInfoMessage(
 }
 
 /**
- * Создаёт карточку (стандартный блок umOS).
+ *   (  umOS).
  */
 export function createCard(
 	parent: HTMLElement,
@@ -155,7 +155,7 @@ export function createCard(
 }
 
 /**
- * Создаёт badge (метка с числом или текстом).
+ *  badge (    text).
  */
 export function createBadge(
 	text: string,
@@ -170,7 +170,7 @@ export function createBadge(
 }
 
 /**
- * Анимирует появление элемента (fade in).
+ *    (fade in).
  */
 export function fadeIn(el: HTMLElement, duration: number = 200): void {
 	el.style.opacity = "0";
@@ -182,7 +182,7 @@ export function fadeIn(el: HTMLElement, duration: number = 200): void {
 }
 
 /**
- * Debounce функция.
+ * Debounce .
  */
 export function debounce<T extends (...args: Parameters<T>) => void>(
 	func: T,

@@ -1,73 +1,98 @@
 import { Setting } from "obsidian";
-import { SettingsContext, createSection, createSubheading, renderEditableList, renderEditActions } from "../helpers";
+import {
+	SettingsContext,
+	createIconButton,
+	createSection,
+	createSubheading,
+	renderEditableList,
+	renderEditActions,
+} from "../helpers";
 
 const ALL_SECTIONS: { id: string; label: string }[] = [
-	{ id: "clock",      label: "🕐 Часы" },
-	{ id: "greeting",   label: "👋 Приветствие" },
-	{ id: "weather",    label: "🌤 Погода" },
-	{ id: "prayer",     label: "🕌 Намаз" },
-	{ id: "ramadan",    label: "🌙 Рамадан" },
-	{ id: "navigation", label: "🧭 Навигация" },
-	{ id: "stats",      label: "📊 Показатели дня" },
-	{ id: "tasks",      label: "✅ Задачи" },
-	{ id: "pomodoro",   label: "⏳ Помодоро" },
-	{ id: "exams",      label: "📝 Экзамены" },
-	{ id: "deadlines",  label: "⚠️ Дедлайны" },
-	{ id: "goals",      label: "🎯 Цели" },
-	{ id: "balance",    label: "⚖️ Баланс времени" },
-	{ id: "finance",    label: "💰 Финансы" },
-	{ id: "projects",   label: "🚀 Проекты" },
-	{ id: "content",    label: "🎬 Контент" },
-	{ id: "footer",     label: "📁 Статистика vault" },
+	{ id: "clock", label: "🕐 Clock" },
+	{ id: "greeting", label: "👋 Greeting" },
+	{ id: "weather", label: "🌤 Weather" },
+	{ id: "prayer", label: "🕌 Prayer" },
+	{ id: "navigation", label: "🧭 Navigation" },
+	{ id: "stats", label: "📊 Daily Metrics" },
+	{ id: "tasks", label: "✅ Tasks" },
+	{ id: "deadlines", label: "⚠️ Deadlines" },
+	{ id: "projects", label: "🚀 Projects" },
+	{ id: "content", label: "🎬 Content" },
+	{ id: "footer", label: "📃 Stats vault" },
 ];
 
 function renderSectionsList(container: HTMLElement, ctx: SettingsContext): void {
 	container.empty();
 
 	const visible = ctx.settings.homeVisibleSections;
+	container.createEl("div", {
+		cls: "umos-settings-inline-note",
+		text: `Enabled ${visible.length} of ${ALL_SECTIONS.length} blocks.`,
+	});
 
-	// Visible sections — ordered, with toggle + ↑/↓
-	visible.forEach((id, index) => {
-		const meta  = ALL_SECTIONS.find(s => s.id === id);
+	const visibleList = container.createDiv({ cls: "umos-settings-list" });
+	for (const [index, id] of visible.entries()) {
+		const meta = ALL_SECTIONS.find((section) => section.id === id);
 		const label = meta?.label ?? id;
 
-		const setting = new Setting(container)
-			.setName(label)
-			.addToggle(t => t.setValue(true).setTooltip("Скрыть").onChange(async () => {
-				ctx.settings.homeVisibleSections = visible.filter(s => s !== id);
-				await ctx.saveSettings();
-				renderSectionsList(container, ctx);
-			}));
+		const itemEl = visibleList.createDiv({ cls: "umos-settings-list-item" });
+		const bodyEl = itemEl.createDiv({ cls: "umos-settings-list-body" });
+		bodyEl.createEl("div", {
+			cls: "umos-settings-list-title",
+			text: label,
+		});
+		bodyEl.createEl("div", {
+			cls: "umos-settings-list-desc",
+			text: `Position in display order: ${index + 1}.`,
+		});
+
+		const actionsEl = itemEl.createDiv({ cls: "umos-settings-list-actions" });
+		createIconButton(actionsEl, "eye-off", "Hide", async () => {
+			ctx.settings.homeVisibleSections = visible.filter((sectionId) => sectionId !== id);
+			await ctx.saveSettings();
+			renderSectionsList(container, ctx);
+		});
 
 		if (index > 0) {
-			setting.addButton(btn => btn.setButtonText("↑").setTooltip("Выше").onClick(async () => {
+			createIconButton(actionsEl, "arrow-up", "Move up", async () => {
 				[visible[index - 1], visible[index]] = [visible[index], visible[index - 1]];
 				await ctx.saveSettings();
 				renderSectionsList(container, ctx);
-			}));
+			});
 		}
 
 		if (index < visible.length - 1) {
-			setting.addButton(btn => btn.setButtonText("↓").setTooltip("Ниже").onClick(async () => {
+			createIconButton(actionsEl, "arrow-down", "Move down", async () => {
 				[visible[index], visible[index + 1]] = [visible[index + 1], visible[index]];
 				await ctx.saveSettings();
 				renderSectionsList(container, ctx);
-			}));
+			});
 		}
-	});
+	}
 
-	// Hidden sections — at the bottom, toggle to show
-	const hidden = ALL_SECTIONS.filter(s => !visible.includes(s.id));
+	const hidden = ALL_SECTIONS.filter((section) => !visible.includes(section.id));
 	if (hidden.length > 0) {
-		createSubheading(container, "Скрытые");
+		createSubheading(container, "Hidden");
+		const hiddenList = container.createDiv({ cls: "umos-settings-list" });
 		for (const section of hidden) {
-			new Setting(container)
-				.setName(section.label)
-				.addToggle(t => t.setValue(false).setTooltip("Показать").onChange(async () => {
-					ctx.settings.homeVisibleSections.push(section.id);
-					await ctx.saveSettings();
-					renderSectionsList(container, ctx);
-				}));
+			const itemEl = hiddenList.createDiv({ cls: "umos-settings-list-item is-muted" });
+			const bodyEl = itemEl.createDiv({ cls: "umos-settings-list-body" });
+			bodyEl.createEl("div", {
+				cls: "umos-settings-list-title",
+				text: section.label,
+			});
+			bodyEl.createEl("div", {
+				cls: "umos-settings-list-desc",
+				text: "Hidden from Home. Restore it with one click.",
+			});
+
+			const actionsEl = itemEl.createDiv({ cls: "umos-settings-list-actions" });
+			createIconButton(actionsEl, "eye", "Show", async () => {
+				ctx.settings.homeVisibleSections.push(section.id);
+				await ctx.saveSettings();
+				renderSectionsList(container, ctx);
+			});
 		}
 	}
 }
@@ -76,32 +101,70 @@ export function renderHomeSection(containerEl: HTMLElement, ctx: SettingsContext
 	const sectionEl = createSection(
 		containerEl,
 		"umos-settings-home",
-		"Главная",
-		"Home-дашборд: пути, видимые блоки и навигация."
+		"Home",
+		"Home dashboard setup: folders, section order, and navigation cards."
 	);
 
-	createSubheading(sectionEl, "Пути");
+	createSubheading(sectionEl, "Folders");
 
 	new Setting(sectionEl)
-		.setName("Папка проектов")
+		.setName("Folder projects")
 		.addText((text) =>
-			text.setPlaceholder("20 Projects").setValue(ctx.settings.homeProjectsPath)
-				.onChange(async (value) => { ctx.settings.homeProjectsPath = value; await ctx.saveSettings(); })
+			text
+				.setPlaceholder("20 Projects")
+				.setValue(ctx.settings.homeProjectsPath)
+				.onChange(async (value) => {
+					ctx.settings.homeProjectsPath = value;
+					await ctx.saveSettings();
+				})
 		);
 
 	new Setting(sectionEl)
-		.setName("Папка контента")
+		.setName("Content Folder")
 		.addText((text) =>
-			text.setPlaceholder("30 Content").setValue(ctx.settings.homeContentPath)
-				.onChange(async (value) => { ctx.settings.homeContentPath = value; await ctx.saveSettings(); })
+			text
+				.setPlaceholder("30 Content")
+				.setValue(ctx.settings.homeContentPath)
+				.onChange(async (value) => {
+					ctx.settings.homeContentPath = value;
+					await ctx.saveSettings();
+				})
 		);
 
-	createSubheading(sectionEl, "Секции и порядок");
+	createSubheading(sectionEl, "Mini Schedule");
+
+	new Setting(sectionEl)
+		.setName("Advance to Next School Day")
+		.setDesc("How many minutes after the last class Home starts showing the next school day.")
+		.addSlider((slider) =>
+			slider
+				.setLimits(0, 180, 5)
+				.setValue(ctx.settings.homeScheduleAdvanceDelayMinutes)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					ctx.settings.homeScheduleAdvanceDelayMinutes = value;
+					await ctx.saveSettings();
+				})
+		);
+
+	new Setting(sectionEl)
+		.setName("Show Past Classes")
+		.setDesc("When off, mini schedule keeps only current and upcoming classes for the day.")
+		.addToggle((toggle) =>
+			toggle
+				.setValue(ctx.settings.homeScheduleShowPastLessons)
+				.onChange(async (value) => {
+					ctx.settings.homeScheduleShowPastLessons = value;
+					await ctx.saveSettings();
+				})
+		);
+
+	createSubheading(sectionEl, "Home Blocks");
 
 	const sectionsContainer = sectionEl.createDiv();
 	renderSectionsList(sectionsContainer, ctx);
 
-	createSubheading(sectionEl, "Навигационные карточки");
+	createSubheading(sectionEl, "Navigation Cards");
 
 	const navContainer = sectionEl.createDiv();
 	renderNavCardsList(navContainer, ctx);
@@ -111,11 +174,11 @@ function renderNavCardsList(container: HTMLElement, ctx: SettingsContext): void 
 	const cards = ctx.settings.homeNavCards;
 
 	renderEditableList(container, cards, {
-		getName: (c) => `${c.icon} ${c.name}`,
-		getDesc: (c) => `${c.path} | ${c.color}`,
-		onEdit: (cont, i) => editNavCard(cont, i, ctx),
-		onDelete: async (i) => {
-			cards.splice(i, 1);
+		getName: (card) => `${card.icon} ${card.name}`,
+		getDesc: (card) => `${card.path} • ${card.color}`,
+		onEdit: (innerContainer, index) => editNavCard(innerContainer, index, ctx),
+		onDelete: async (index) => {
+			cards.splice(index, 1);
 			await ctx.saveSettings();
 		},
 		onReorder: async (from, to) => {
@@ -125,24 +188,65 @@ function renderNavCardsList(container: HTMLElement, ctx: SettingsContext): void 
 			await ctx.saveSettings();
 		},
 		onAdd: async () => {
-			cards.push({ name: "Новая", path: "", icon: "📄", color: "#7c3aed" });
+			cards.push({ name: "New Card", path: "", icon: "📄", color: "#7c3aed" });
 			await ctx.saveSettings();
 		},
-		addLabel: "+ Добавить карточку",
+		addLabel: "+ Add Card",
+		emptyState: "No cards yet. Add the first Home link.",
 	});
 }
 
 function editNavCard(container: HTMLElement, index: number, ctx: SettingsContext): void {
 	const card = { ...ctx.settings.homeNavCards[index] };
 	container.empty();
-	container.createEl("h4", { text: `${card.icon} ${card.name}` });
 
-	new Setting(container).setName("Название").addText((t) => t.setValue(card.name).onChange((v) => { card.name = v; }));
-	new Setting(container).setName("Путь").addText((t) => t.setValue(card.path).onChange((v) => { card.path = v; }));
-	new Setting(container).setName("Иконка").addText((t) => t.setValue(card.icon).onChange((v) => { card.icon = v; }));
-	new Setting(container).setName("Цвет").addText((t) => t.setValue(card.color).onChange((v) => { card.color = v; }));
+	const editor = container.createDiv({ cls: "umos-settings-editor" });
+	editor.createEl("h4", {
+		text: `${card.icon} ${card.name || "Card"}`,
+		cls: "umos-settings-editor-title",
+	});
+	editor.createEl("p", {
+		text: "Set the card label, path, icon, and accent color.",
+		cls: "umos-settings-editor-desc",
+	});
 
-	renderEditActions(container,
+	new Setting(editor)
+		.setName("Title")
+		.addText((text) =>
+			text.setValue(card.name).onChange((value) => {
+				card.name = value;
+			})
+		);
+
+	new Setting(editor)
+		.setName("Path")
+		.setDesc("Note or folder opened on click.")
+		.addText((text) =>
+			text.setValue(card.path).onChange((value) => {
+				card.path = value;
+			})
+		);
+
+	new Setting(editor)
+		.setName("Icon")
+		.setDesc("Emoji and short symbols are supported.")
+		.addText((text) =>
+			text.setValue(card.icon).onChange((value) => {
+				card.icon = value;
+			})
+		);
+
+	new Setting(editor)
+		.setName("Color")
+		.setDesc("HEX accent color, for example: #3498db")
+		.addText((text) =>
+			text.setValue(card.color).onChange((value) => {
+				card.color = value;
+			})
+		);
+
+	renderEditActions(
+		editor,
 		() => renderNavCardsList(container, ctx),
 		async () => {
 			ctx.settings.homeNavCards[index] = card;
