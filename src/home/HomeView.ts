@@ -17,6 +17,7 @@ import { renderProjectsSection } from "./sections/projects";
 import { renderContentSection } from "./sections/content";
 import { renderFooter } from "./sections/footer";
 import { renderDesktopHome } from "./DesktopHomeView";
+import type UmOSPlugin from "../main";
 
 export const HOME_VIEW_TYPE = "umos-home-view";
 
@@ -36,6 +37,7 @@ export class HomeView extends ItemView {
 	private setPrayerCompletionFn: ((property: string, value: boolean) => Promise<void>) | null;
 	private weatherService: WeatherService | null;
 	private saveSettingsFn: (() => Promise<void>) | null;
+	private plugin: UmOSPlugin;
 	private clockEl: HTMLElement | null = null;
 	private countdownEl: HTMLElement | null = null;
 	private contentContainerEl: HTMLElement | null = null;
@@ -55,7 +57,8 @@ export class HomeView extends ItemView {
 		createDailyNoteFn: (() => Promise<void>) | null,
 		setPrayerCompletionFn: ((property: string, value: boolean) => Promise<void>) | null,
 		weatherService: WeatherService | null,
-		saveSettingsFn: (() => Promise<void>) | null
+		saveSettingsFn: (() => Promise<void>) | null,
+		plugin: UmOSPlugin
 	) {
 		super(leaf);
 		this.obsidianApp = app;
@@ -68,6 +71,7 @@ export class HomeView extends ItemView {
 		this.setPrayerCompletionFn = setPrayerCompletionFn;
 		this.weatherService = weatherService;
 		this.saveSettingsFn = saveSettingsFn;
+		this.plugin = plugin;
 	}
 
 	getViewType(): string {
@@ -131,6 +135,10 @@ export class HomeView extends ItemView {
 		this.eventBus.on("stats:recalculated", statsHandler);
 		this.register(() => { this.eventBus.off("stats:recalculated", statsHandler); });
 
+		const dailyHandler = () => { this.render(); };
+		this.eventBus.on("daily:created", dailyHandler);
+		this.register(() => { this.eventBus.off("daily:created", dailyHandler); });
+
 		const frontmatterHandler = (data: { path: string; property: string; value: unknown }) => {
 			if (HOME_PRAYER_FRONTMATTER_KEYS.has(data.property)) {
 				this.render();
@@ -156,6 +164,10 @@ export class HomeView extends ItemView {
 		const settingsHandler = () => { this.render(); };
 		this.eventBus.on("settings:changed", settingsHandler);
 		this.register(() => { this.eventBus.off("settings:changed", settingsHandler); });
+
+		const tasksChangedHandler = () => { this.render(); };
+		this.eventBus.on("tasks:changed", tasksChangedHandler);
+		this.register(() => { this.eventBus.off("tasks:changed", tasksChangedHandler); });
 	}
 
 	async onClose(): Promise<void> {
@@ -221,6 +233,7 @@ export class HomeView extends ItemView {
 	private buildCtx(): HomeViewContext {
 		return {
 			app: this.obsidianApp,
+			plugin: this.plugin,
 			eventBus: this.eventBus,
 			settings: this.settings,
 			getData: this.getData,

@@ -699,7 +699,7 @@ export class TasksWidget extends BaseWidget {
                     this.isUpdating = true;
                     await this.service.deleteTask(deletedTask);
                     setTimeout(() => { this.isUpdating = false; this.render(); }, 300);
-                });
+                }, this.plugin);
                 modal.open();
             });
 
@@ -818,7 +818,7 @@ export class TasksWidget extends BaseWidget {
                 await this.service.addSubtasksAfterLine(filePath, lineNum, task.indentation, subtasks);
             }
             setTimeout(() => this.render(), 300);
-        });
+        }, undefined, this.plugin);
         modal.open();
     }
 

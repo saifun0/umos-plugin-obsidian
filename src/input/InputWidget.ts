@@ -11,7 +11,7 @@ import { NumberInput, NumberInputConfig } from "./NumberInput";
 import { DateInput, DateInputConfig } from "./DateInput";
 import { ChipInput, ChipInputConfig } from "./ChipInput";
 import { createErrorMessage } from "../utils/dom";
-import { CommandInputWidget } from "./CommandInputWidget";
+import { t } from "../i18n";
 
 export class InputWidgetManager {
 	private plugin: UmOSPlugin;
@@ -182,14 +182,7 @@ export class InputWidgetManager {
 				widget = this.createDate(container, config, file);
 				break;
 			case "command":
-				widget = new CommandInputWidget(container, this.plugin, {
-					placeholder: String(config.placeholder || config.command_placeholder || ""),
-					target: typeof config.target === "string" ? config.target : undefined,
-					create_in: typeof config.create_in === "string" ? config.create_in : undefined,
-					file: typeof config.file === "string" ? config.file : undefined,
-					help: typeof config.help === "boolean" || typeof config.help === "string" ? config.help : undefined,
-					history: typeof config.history === "boolean" || typeof config.history === "string" ? config.history : undefined,
-				}, ctx.sourcePath);
+				createErrorMessage(container, t("Command input moved to Better Search."));
 				break;
 			default:
 				createErrorMessage(container, `Unknown widget type: ${type}`);

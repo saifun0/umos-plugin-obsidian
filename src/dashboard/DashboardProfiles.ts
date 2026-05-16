@@ -79,6 +79,7 @@ export const DASHBOARD_PRESETS: DashboardPreset[] = [
 		widthMode: "wide",
 		blocks: [
 			{ widget: "tasks-stats-widget", config: {}, enabled: true, column: 1 },
+			{ widget: "tasks-completed-widget", config: { collapsed: true }, enabled: true, column: 1 },
 			{ widget: "tasks-widget", config: { title: "Active tasks", status: "todo,doing", sort: "priority-asc" }, enabled: true, column: 1 },
 			{ widget: "tasks-kanban", config: { title: "Kanban", create_in: "current" }, enabled: true, column: 2 },
 		],

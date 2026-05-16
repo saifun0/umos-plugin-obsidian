@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { Notice, setIcon } from "obsidian";
 import { HomeViewContext } from "../types";
 import { createElement } from "../../utils/dom";
 import {
@@ -79,16 +79,19 @@ function renderForecast(
 	});
 	const hourlyBtn = createElement("button", {
 		cls: "umos-home-weather-mode-btn",
-		text: "Hourly",
-		attr: { type: "button", "aria-pressed": "false" },
+		attr: { type: "button", "aria-pressed": "false", "aria-label": "Hourly forecast" },
 		parent: toggle,
 	});
+	const hourlyIcon = createElement("span", { cls: "umos-home-weather-mode-icon", parent: hourlyBtn });
+	setIcon(hourlyIcon, "clock-3");
+
 	const dailyBtn = createElement("button", {
 		cls: "umos-home-weather-mode-btn",
-		text: "Day / night",
-		attr: { type: "button", "aria-pressed": "false" },
+		attr: { type: "button", "aria-pressed": "false", "aria-label": "Day / night forecast" },
 		parent: toggle,
 	});
+	const dailyIcon = createElement("span", { cls: "umos-home-weather-mode-icon", parent: dailyBtn });
+	setIcon(dailyIcon, "sun-moon");
 
 	hourlyBtn.disabled = hourly.length === 0;
 	dailyBtn.disabled = daily.length === 0;

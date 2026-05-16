@@ -1,4 +1,5 @@
 import { App, Modal, Setting } from "obsidian";
+import { t } from "../i18n";
 
 interface FormatItem {
 	id: string;
@@ -7,6 +8,8 @@ interface FormatItem {
 	name: string;
 	desc: string;
 	snippet: string;
+	placeholder?: string;
+	keywords?: string[];
 	/** If true, snippet replaces frontmatter cssclasses (special handling) */
 	isCssClass?: boolean;
 	/** If true, snippet must start on its own blank line */
@@ -14,14 +17,218 @@ interface FormatItem {
 }
 
 const ITEMS: FormatItem[] = [
+	// ── Markdown ───────────────────────────────────────────────────
+	{
+		id: "md-bold",
+		category: "Markdown",
+		icon: "B",
+		name: "Bold",
+		desc: "Strong emphasis",
+		snippet: "**{{selection}}**",
+		placeholder: "text",
+		keywords: ["жирный", "bold"],
+	},
+	{
+		id: "md-italic",
+		category: "Markdown",
+		icon: "I",
+		name: "Italic",
+		desc: "Soft emphasis",
+		snippet: "*{{selection}}*",
+		placeholder: "text",
+		keywords: ["курсив", "italic"],
+	},
+	{
+		id: "md-bold-italic",
+		category: "Markdown",
+		icon: "BI",
+		name: "Bold Italic",
+		desc: "Strong and expressive emphasis",
+		snippet: "***{{selection}}***",
+		placeholder: "text",
+	},
+	{
+		id: "md-strike",
+		category: "Markdown",
+		icon: "S",
+		name: "Strikethrough",
+		desc: "Crossed out text",
+		snippet: "~~{{selection}}~~",
+		placeholder: "text",
+	},
+	{
+		id: "md-highlight",
+		category: "Markdown",
+		icon: "H",
+		name: "Native Highlight",
+		desc: "Obsidian ==highlight== syntax",
+		snippet: "=={{selection}}==",
+		placeholder: "text",
+	},
+	{
+		id: "md-code",
+		category: "Markdown",
+		icon: "</>",
+		name: "Inline Code",
+		desc: "Monospace inline code",
+		snippet: "`{{selection}}`",
+		placeholder: "code",
+	},
+	{
+		id: "md-wikilink",
+		category: "Markdown",
+		icon: "[[",
+		name: "Wiki Link",
+		desc: "Internal Obsidian link",
+		snippet: "[[{{selection}}]]",
+		placeholder: "Note name",
+	},
+	{
+		id: "md-link",
+		category: "Markdown",
+		icon: "↗",
+		name: "External Link",
+		desc: "Markdown link with selected text as label",
+		snippet: "[{{selection}}](https://example.com)",
+		placeholder: "link text",
+	},
+	{
+		id: "md-quote",
+		category: "Markdown",
+		icon: ">",
+		name: "Quote Block",
+		desc: "Blockquote from selected lines",
+		snippet: "{{blockquote}}",
+		placeholder: "Quote",
+		isBlock: true,
+	},
+	{
+		id: "md-codeblock",
+		category: "Markdown",
+		icon: "{}",
+		name: "Code Block",
+		desc: "Fenced code block",
+		snippet: "```text\n{{selection}}\n```",
+		placeholder: "code",
+		isBlock: true,
+	},
+	{
+		id: "md-table",
+		category: "Markdown",
+		icon: "▦",
+		name: "Table",
+		desc: "Editable markdown table",
+		snippet: "| Column | Column |\n| --- | --- |\n| Value | Value |",
+		isBlock: true,
+	},
+	{
+		id: "umos-progress-table",
+		category: "Markdown",
+		icon: "▦",
+		name: "Progress Table Template",
+		desc: "Interactive umOS table with clickable marks",
+		snippet: "```progress-table\nid: progress-table\ntitle: Progress Table\ncolumns: [Ready, Reviewed]\nmark: +\nsummary: true\ngroups:\n  Project A: №1-№5\n  Project B: Step 1, Step 2, Step 3\n```",
+		keywords: ["progress-table", "progress", "table", "checklist", "долги", "прогресс", "таблица", "отметки"],
+		isBlock: true,
+	},
+	{
+		id: "md-math-inline",
+		category: "Markdown",
+		icon: "∑",
+		name: "Inline Math",
+		desc: "MathJax inline expression",
+		snippet: "${{selection}}$",
+		placeholder: "x^2",
+	},
+	{
+		id: "md-math-block",
+		category: "Markdown",
+		icon: "∫",
+		name: "Math Block",
+		desc: "Display MathJax block",
+		snippet: "$$\n{{selection}}\n$$",
+		placeholder: "E = mc^2",
+		isBlock: true,
+	},
+	{
+		id: "md-mermaid",
+		category: "Markdown",
+		icon: "◇",
+		name: "Mermaid Flowchart",
+		desc: "Diagram code block",
+		snippet: "```mermaid\ngraph TD\n  A[Start] --> B[Next]\n```",
+		isBlock: true,
+	},
+
 	// ── Callouts ─────────────────────────────────────────────────────
+	{
+		id: "callout-note",
+		category: "Callouts",
+		icon: "ⓘ",
+		name: "Note Callout",
+		desc: "Native Obsidian note block",
+		snippet: "> [!note]\n{{blockquote}}",
+		placeholder: "Note",
+		isBlock: true,
+	},
+	{
+		id: "callout-tip",
+		category: "Callouts",
+		icon: "!",
+		name: "Tip Callout",
+		desc: "Helpful hint or important idea",
+		snippet: "> [!tip]\n{{blockquote}}",
+		placeholder: "Tip",
+		isBlock: true,
+	},
+	{
+		id: "callout-warning",
+		category: "Callouts",
+		icon: "!",
+		name: "Warning Callout",
+		desc: "Caution or risk",
+		snippet: "> [!warning]\n{{blockquote}}",
+		placeholder: "Warning",
+		isBlock: true,
+	},
+	{
+		id: "callout-question",
+		category: "Callouts",
+		icon: "?",
+		name: "Question Callout",
+		desc: "Question, prompt, or uncertainty",
+		snippet: "> [!question]\n{{blockquote}}",
+		placeholder: "Question",
+		isBlock: true,
+	},
+	{
+		id: "callout-success",
+		category: "Callouts",
+		icon: "✓",
+		name: "Success Callout",
+		desc: "Result, win, or completed idea",
+		snippet: "> [!success]\n{{blockquote}}",
+		placeholder: "Success",
+		isBlock: true,
+	},
+	{
+		id: "callout-danger",
+		category: "Callouts",
+		icon: "×",
+		name: "Danger Callout",
+		desc: "Critical warning",
+		snippet: "> [!danger]\n{{blockquote}}",
+		placeholder: "Danger",
+		isBlock: true,
+	},
 	{
 		id: "callout-focus",
 		category: "Callouts",
 		icon: "⚡",
 		name: "Focus — Important",
 		desc: "Accent block, purple",
-		snippet: "> [!focus-umos]\n> ",
+		snippet: "> [!focus-umos]\n{{blockquote}}",
+		placeholder: "Important point",
 		isBlock: true,
 	},
 	{
@@ -30,7 +237,8 @@ const ITEMS: FormatItem[] = [
 		icon: "⚡",
 		name: "Focus — Centered",
 		desc: "Accent callout with the |center parameter",
-		snippet: "> [!focus-umos|center]\n> ",
+		snippet: "> [!focus-umos|center]\n{{blockquote}}",
+		placeholder: "Centered point",
 		isBlock: true,
 	},
 	{
@@ -39,7 +247,18 @@ const ITEMS: FormatItem[] = [
 		icon: "✍️",
 		name: "Reflect — Reflection",
 		desc: "Journal / personal thoughts, italic",
-		snippet: "> [!reflect-umos] Thought\n> ",
+		snippet: "> [!reflect-umos] Thought\n{{blockquote}}",
+		placeholder: "Reflection",
+		isBlock: true,
+	},
+	{
+		id: "callout-goal",
+		category: "Callouts",
+		icon: "◎",
+		name: "Goal — Target",
+		desc: "Green goal block",
+		snippet: "> [!goal-umos] Goal\n{{blockquote}}",
+		placeholder: "Target",
 		isBlock: true,
 	},
 	{
@@ -48,7 +267,8 @@ const ITEMS: FormatItem[] = [
 		icon: "💬",
 		name: "Verse — Quote / Verse",
 		desc: "No title, large italic",
-		snippet: "> [!verse-umos]\n> ",
+		snippet: "> [!verse-umos]\n{{blockquote}}",
+		placeholder: "Quote",
 		isBlock: true,
 	},
 	{
@@ -57,7 +277,8 @@ const ITEMS: FormatItem[] = [
 		icon: "💬",
 		name: "Verse — Centered",
 		desc: "Quote / verse with the |center parameter",
-		snippet: "> [!verse-umos|center]\n> ",
+		snippet: "> [!verse-umos|center]\n{{blockquote}}",
+		placeholder: "Quote",
 		isBlock: true,
 	},
 	{
@@ -66,7 +287,8 @@ const ITEMS: FormatItem[] = [
 		icon: "📖",
 		name: "Arabic — Arabic Text",
 		desc: "RTL, large Amiri font",
-		snippet: "> [!arabic-umos] Ayah\n> ",
+		snippet: "> [!arabic-umos] Ayah\n{{blockquote}}",
+		placeholder: "النص العربي",
 		isBlock: true,
 	},
 	{
@@ -78,8 +300,72 @@ const ITEMS: FormatItem[] = [
 		snippet: "> [!stat-umos] Title\n> **42** tasks\n> **7** habits\n> **3** projects\n",
 		isBlock: true,
 	},
+	{
+		id: "callout-definition",
+		category: "Callouts",
+		icon: "≡",
+		name: "Definition",
+		desc: "Term and explanation block",
+		snippet: "> [!definition-umos] Term\n{{blockquote}}",
+		placeholder: "Definition",
+		isBlock: true,
+	},
+	{
+		id: "callout-method",
+		category: "Callouts",
+		icon: "↪",
+		name: "Method",
+		desc: "Steps or workflow block",
+		snippet: "> [!method-umos] Method\n> 1. First step\n> 2. Next step\n> 3. Result\n",
+		isBlock: true,
+	},
+	{
+		id: "callout-compare",
+		category: "Callouts",
+		icon: "⇄",
+		name: "Compare",
+		desc: "Comparison or contrast",
+		snippet: "> [!compare-umos] Compare\n> **A:** \n> **B:** \n> **Conclusion:** \n",
+		isBlock: true,
+	},
+	{
+		id: "callout-checklist",
+		category: "Callouts",
+		icon: "☑",
+		name: "Checklist",
+		desc: "Compact action checklist",
+		snippet: "> [!checklist-umos] Checklist\n> - First\n> - Second\n> - Third\n",
+		isBlock: true,
+	},
 
 	// ── Dividers ───────────────────────────────────────────────────
+	{
+		id: "hr-soft",
+		category: "Dividers",
+		icon: "─",
+		name: "Soft Divider",
+		desc: "Inline soft horizontal divider",
+		snippet: '<hr class="umos-hr-soft">',
+		isBlock: true,
+	},
+	{
+		id: "hr-glow",
+		category: "Dividers",
+		icon: "━",
+		name: "Glow Divider",
+		desc: "Accent divider with a soft glow",
+		snippet: '<hr class="umos-hr-glow">',
+		isBlock: true,
+	},
+	{
+		id: "hr-label",
+		category: "Dividers",
+		icon: "◆",
+		name: "Label Divider",
+		desc: "Centered label divider",
+		snippet: '<div class="umos-divider-label">Section</div>',
+		isBlock: true,
+	},
 	{
 		id: "div-dots",
 		category: "Dividers",
@@ -163,6 +449,42 @@ const ITEMS: FormatItem[] = [
 		snippet: "umos-headings-accent",
 		isCssClass: true,
 	},
+	{
+		id: "cls-dropcap",
+		category: "Note Classes",
+		icon: "D",
+		name: "Drop Cap",
+		desc: "Large first letter in reading view",
+		snippet: "umos-dropcap",
+		isCssClass: true,
+	},
+	{
+		id: "cls-paper",
+		category: "Note Classes",
+		icon: "□",
+		name: "Paper Note",
+		desc: "Soft paper-like reading surface",
+		snippet: "umos-paper",
+		isCssClass: true,
+	},
+	{
+		id: "cls-compact",
+		category: "Note Classes",
+		icon: "≋",
+		name: "Compact Note",
+		desc: "Tighter paragraphs and headings",
+		snippet: "umos-compact-note",
+		isCssClass: true,
+	},
+	{
+		id: "cls-accent-links",
+		category: "Note Classes",
+		icon: "↗",
+		name: "Accent Links",
+		desc: "More visible internal and external links",
+		snippet: "umos-accent-links",
+		isCssClass: true,
+	},
 
 	// ── Layout (cols-umos / info-umos) ────────────────────────────────
 	{
@@ -202,6 +524,25 @@ const ITEMS: FormatItem[] = [
 		isBlock: true,
 	},
 	{
+		id: "image-embed",
+		category: "Layout",
+		icon: "▣",
+		name: "Image Embed",
+		desc: "Vault image embed with width",
+		snippet: "![[00 Files/image.png|420]]",
+		isBlock: true,
+	},
+	{
+		id: "details",
+		category: "Layout",
+		icon: "▾",
+		name: "Details Toggle",
+		desc: "HTML collapsible block",
+		snippet: "<details>\n<summary>Summary</summary>\n\n{{selection}}\n\n</details>",
+		placeholder: "Hidden content",
+		isBlock: true,
+	},
+	{
 		id: "kanban-board",
 		category: "Layout",
 		icon: "📋",
@@ -218,7 +559,8 @@ const ITEMS: FormatItem[] = [
 		icon: "🔴",
 		name: "Mark — Red",
 		desc: "Critical / important",
-		snippet: '<mark class="umos-mark-red">text</mark>',
+		snippet: '<mark class="umos-mark-red">{{selection}}</mark>',
+		placeholder: "text",
 	},
 	{
 		id: "mark-green",
@@ -226,7 +568,8 @@ const ITEMS: FormatItem[] = [
 		icon: "🟢",
 		name: "Mark — Green",
 		desc: "Done / ok",
-		snippet: '<mark class="umos-mark-green">text</mark>',
+		snippet: '<mark class="umos-mark-green">{{selection}}</mark>',
+		placeholder: "text",
 	},
 	{
 		id: "mark-blue",
@@ -234,7 +577,8 @@ const ITEMS: FormatItem[] = [
 		icon: "🔵",
 		name: "Mark — Blue",
 		desc: "Idea / note",
-		snippet: '<mark class="umos-mark-blue">text</mark>',
+		snippet: '<mark class="umos-mark-blue">{{selection}}</mark>',
+		placeholder: "text",
 	},
 	{
 		id: "mark-yellow",
@@ -242,7 +586,8 @@ const ITEMS: FormatItem[] = [
 		icon: "🟡",
 		name: "Mark — Yellow",
 		desc: "Worth noting",
-		snippet: '<mark class="umos-mark-yellow">text</mark>',
+		snippet: '<mark class="umos-mark-yellow">{{selection}}</mark>',
+		placeholder: "text",
 	},
 	{
 		id: "mark-purple",
@@ -250,7 +595,8 @@ const ITEMS: FormatItem[] = [
 		icon: "🟣",
 		name: "Mark — Purple",
 		desc: "Question / unclear",
-		snippet: '<mark class="umos-mark-purple">text</mark>',
+		snippet: '<mark class="umos-mark-purple">{{selection}}</mark>',
+		placeholder: "text",
 	},
 	{
 		id: "pill",
@@ -258,11 +604,129 @@ const ITEMS: FormatItem[] = [
 		icon: "🏷",
 		name: "Pill Tag",
 		desc: "Accent inline tag",
-		snippet: '<span class="umos-pill">tag</span>',
+		snippet: '<span class="umos-pill">{{selection}}</span>',
+		placeholder: "tag",
+	},
+	{
+		id: "badge-info",
+		category: "Labels",
+		icon: "i",
+		name: "Badge — Info",
+		desc: "Small blue badge",
+		snippet: '<span class="umos-badge umos-badge-info">{{selection}}</span>',
+		placeholder: "info",
+	},
+	{
+		id: "badge-success",
+		category: "Labels",
+		icon: "✓",
+		name: "Badge — Success",
+		desc: "Small green badge",
+		snippet: '<span class="umos-badge umos-badge-success">{{selection}}</span>',
+		placeholder: "done",
+	},
+	{
+		id: "badge-warning",
+		category: "Labels",
+		icon: "!",
+		name: "Badge — Warning",
+		desc: "Small amber badge",
+		snippet: '<span class="umos-badge umos-badge-warning">{{selection}}</span>',
+		placeholder: "warning",
+	},
+	{
+		id: "badge-danger",
+		category: "Labels",
+		icon: "×",
+		name: "Badge — Danger",
+		desc: "Small red badge",
+		snippet: '<span class="umos-badge umos-badge-danger">{{selection}}</span>',
+		placeholder: "danger",
+	},
+	{
+		id: "text-muted",
+		category: "Labels",
+		icon: "∼",
+		name: "Muted Text",
+		desc: "Quiet secondary text",
+		snippet: '<span class="umos-text-muted">{{selection}}</span>',
+		placeholder: "side note",
+	},
+	{
+		id: "text-underline",
+		category: "Labels",
+		icon: "U",
+		name: "Accent Underline",
+		desc: "Clean accent underline",
+		snippet: '<span class="umos-text-underline">{{selection}}</span>',
+		placeholder: "text",
+	},
+	{
+		id: "text-wavy",
+		category: "Labels",
+		icon: "~",
+		name: "Wavy Underline",
+		desc: "Questionable or needs review",
+		snippet: '<span class="umos-text-wavy">{{selection}}</span>',
+		placeholder: "text",
+	},
+	{
+		id: "text-double",
+		category: "Labels",
+		icon: "=",
+		name: "Double Underline",
+		desc: "Academic emphasis",
+		snippet: '<span class="umos-text-double">{{selection}}</span>',
+		placeholder: "text",
+	},
+	{
+		id: "text-glow",
+		category: "Labels",
+		icon: "✦",
+		name: "Soft Glow",
+		desc: "Subtle luminous emphasis",
+		snippet: '<span class="umos-text-glow">{{selection}}</span>',
+		placeholder: "text",
+	},
+	{
+		id: "kbd",
+		category: "Labels",
+		icon: "⌘",
+		name: "Keyboard Key",
+		desc: "Keyboard shortcut key",
+		snippet: "<kbd>{{selection}}</kbd>",
+		placeholder: "Ctrl K",
+	},
+	{
+		id: "small",
+		category: "Labels",
+		icon: "sm",
+		name: "Small Text",
+		desc: "Side note / fine print",
+		snippet: "<small>{{selection}}</small>",
+		placeholder: "small note",
+	},
+	{
+		id: "sup",
+		category: "Labels",
+		icon: "x²",
+		name: "Superscript",
+		desc: "Raised text",
+		snippet: "<sup>{{selection}}</sup>",
+		placeholder: "2",
+	},
+	{
+		id: "sub",
+		category: "Labels",
+		icon: "x₂",
+		name: "Subscript",
+		desc: "Lowered text",
+		snippet: "<sub>{{selection}}</sub>",
+		placeholder: "2",
 	},
 ];
 
-const CATEGORY_ORDER = ["Callouts", "Layout", "Dividers", "Note Classes", "Labels"];
+const CATEGORY_ORDER = ["Markdown", "Callouts", "Layout", "Dividers", "Note Classes", "Labels"];
 
 export class FormatPickerModal extends Modal {
 	private query = "";
@@ -292,7 +756,7 @@ export class FormatPickerModal extends Modal {
 		const searchWrap = contentEl.createDiv({ cls: "umos-fp-search-wrap" });
 		this.inputEl = searchWrap.createEl("input", {
 			cls: "umos-fp-search",
-			attr: { type: "text", placeholder: "Search formatting..." },
+			attr: { type: "text", placeholder: t("Search formatting...") },
 		}) as HTMLInputElement;
 
 		// ── List ──────────────────────────────────────────────────────
@@ -323,10 +787,7 @@ export class FormatPickerModal extends Modal {
 		const q = this.query.toLowerCase().trim();
 		const filtered = q
 			? ITEMS.filter(
-				(i) =>
-					i.name.toLowerCase().includes(q) ||
-					i.desc.toLowerCase().includes(q) ||
-					i.category.toLowerCase().includes(q)
+				(i) => this.getSearchText(i).includes(q)
 			)
 			: ITEMS;
 
@@ -334,7 +795,7 @@ export class FormatPickerModal extends Modal {
 		if (this.focusedIdx >= filtered.length) this.focusedIdx = 0;
 
 		if (filtered.length === 0) {
-			this.listEl.createDiv({ cls: "umos-fp-empty", text: "Nothing found" });
+			this.listEl.createDiv({ cls: "umos-fp-empty", text: t("Nothing found") });
 			return;
 		}
 
@@ -350,7 +811,7 @@ export class FormatPickerModal extends Modal {
 				const group = filtered.filter((i) => i.category === cat);
 				if (group.length === 0) continue;
 
-				this.listEl.createDiv({ cls: "umos-fp-category", text: cat });
+				this.listEl.createDiv({ cls: "umos-fp-category", text: t(cat) });
 				for (const item of group) {
 					this.renderItem(item, globalIdx++);
 				}
@@ -367,12 +828,12 @@ export class FormatPickerModal extends Modal {
 		row.createSpan({ cls: "umos-fp-item-icon", text: item.icon });
 
 		const text = row.createDiv({ cls: "umos-fp-item-text" });
-		text.createSpan({ cls: "umos-fp-item-name", text: item.name });
-		text.createSpan({ cls: "umos-fp-item-desc", text: item.desc });
+		text.createSpan({ cls: "umos-fp-item-name", text: t(item.name) });
+		text.createSpan({ cls: "umos-fp-item-desc", text: t(item.desc) });
 
 		const badge = row.createSpan({
 			cls: "umos-fp-item-badge",
-			text: item.isCssClass ? "cssclass" : "insert",
+			text: this.getItemBadge(item),
 		});
 		if (item.isCssClass) badge.addClass("umos-fp-item-badge--cls");
 
@@ -434,17 +895,19 @@ export class FormatPickerModal extends Modal {
 		if (item.isCssClass) {
 			this.addCssClass(item.snippet);
 		} else {
-			this.insertSnippet(item.snippet, item.isBlock ?? false);
+			this.insertSnippet(item);
 		}
 		this.close();
 	}
 
 	/** Insert     */
-	private insertSnippet(snippet: string, isBlock: boolean): void {
+	private insertSnippet(item: FormatItem): void {
 		const editor = this.app.workspace.activeEditor?.editor;
 		if (!editor) return;
 
-		if (isBlock) {
+		const snippet = this.prepareSnippet(item, editor.getSelection());
+
+		if (item.isBlock) {
 			//   ()
 			const cursor = editor.getCursor();
 			const lineText = editor.getLine(cursor.line);
@@ -467,6 +930,38 @@ export class FormatPickerModal extends Modal {
 		} else {
 			editor.replaceSelection(snippet);
 		}
+	}
+
+	private prepareSnippet(item: FormatItem, selection: string): string {
+		const fallback = item.placeholder ?? "text";
+		const selectedText = selection.trim().length > 0 ? selection : fallback;
+		const blockquote = selectedText
+			.split("\n")
+			.map((line) => `> ${line}`)
+			.join("\n");
+
+		return t(item.snippet)
+			.replaceAll("{{selection}}", selectedText)
+			.replaceAll("{{blockquote}}", blockquote);
+	}
+
+	private getSearchText(item: FormatItem): string {
+		return [
+			item.name,
+			t(item.name),
+			item.desc,
+			t(item.desc),
+			item.category,
+			t(item.category),
+			...(item.keywords ?? []),
+		].join(" ").toLowerCase();
+	}
+
+	private getItemBadge(item: FormatItem): string {
+		if (item.isCssClass) return "cssclass";
+		if (item.isBlock) return t("block");
+		if (item.snippet.includes("{{selection}}")) return t("wrap");
+		return t("insert");
 	}
 
 	/** Add CSS-  frontmatter cssclasses  */

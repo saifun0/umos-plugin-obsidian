@@ -26,7 +26,16 @@ function getTaskKey(task: Pick<Task, "filePath" | "lineNumber">): string {
 }
 
 function getTodayIso(): string {
+	return getDateIsoWithOffset(0);
+}
+
+function getTomorrowIso(): string {
+	return getDateIsoWithOffset(1);
+}
+
+function getDateIsoWithOffset(dayOffset: number): string {
 	const now = new Date();
+	now.setDate(now.getDate() + dayOffset);
 	const year = now.getFullYear();
 	const month = String(now.getMonth() + 1).padStart(2, "0");
 	const day = String(now.getDate()).padStart(2, "0");
@@ -39,6 +48,10 @@ function isTaskActive(task: Pick<Task, "status">): boolean {
 
 function isTaskDueToday(task: Pick<Task, "dueDate">): boolean {
 	return Boolean(task.dueDate && task.dueDate === getTodayIso());
+}
+
+function isTaskDueTomorrow(task: Pick<Task, "dueDate">): boolean {
+	return Boolean(task.dueDate && task.dueDate === getTomorrowIso());
 }
 
 function hasDoingAncestor(task: Task): boolean {
@@ -111,6 +124,10 @@ function getTaskMetaLabel(task: Task, isOverdueTask: boolean): { text: string; c
 		return { text: "today", cls: "is-today" };
 	}
 
+	if (isTaskDueTomorrow(task)) {
+		return { text: "tomorrow", cls: "is-tomorrow" };
+	}
+
 	if (task.status === "doing") {
 		return { text: "in progress", cls: "is-progress" };
 	}
@@ -118,8 +135,8 @@ function getTaskMetaLabel(task: Task, isOverdueTask: boolean): { text: string; c
 	return { text: "to do", cls: "is-queued" };
 }
 
-function getHeroSubtitle(todayCount: number, overdueCount: number, inProgressCount: number): string {
-	if (todayCount === 0 && inProgressCount === 0) {
+function getHeroSubtitle(todayCount: number, tomorrowCount: number, overdueCount: number, inProgressCount: number): string {
+	if (todayCount === 0 && tomorrowCount === 0 && inProgressCount === 0) {
 		return "Quiet today - no active tasks";
 	}
 
@@ -129,16 +146,18 @@ function getHeroSubtitle(todayCount: number, overdueCount: number, inProgressCou
 		];
 		const dueTodayOnly = todayCount - overdueCount;
 		if (dueTodayOnly > 0) fragments.push(`${dueTodayOnly} for today`);
+		if (tomorrowCount > 0) fragments.push(`${tomorrowCount} for tomorrow`);
 		if (inProgressCount > 0) fragments.push(`${inProgressCount} active`);
 		return fragments.join(" · ");
 	}
 
-	if (todayCount > 0 && inProgressCount > 0) {
-		return `${todayCount} for today · ${inProgressCount} active`;
-	}
+	const fragments: string[] = [];
+	if (todayCount > 0) fragments.push(`${todayCount} for today`);
+	if (tomorrowCount > 0) fragments.push(`${tomorrowCount} for tomorrow`);
+	if (inProgressCount > 0) fragments.push(`${inProgressCount} active`);
 
-	if (todayCount > 0) {
-		return `${todayCount} ${pluralize(todayCount, "task", "tasks", "tasks")} for today`;
+	if (fragments.length > 0) {
+		return fragments.join(" · ");
 	}
 
 	return `${inProgressCount} ${pluralize(inProgressCount, "task already active", "tasks already active", "tasks already active")}`;
@@ -368,6 +387,23 @@ function renderTaskItems(
 	}
 }
 
+function sortHomeTasks(tasks: Task[]): Task[] {
+	const priorityOrder: Record<Task["priority"], number> = { high: 0, medium: 1, low: 2, none: 3 };
+
+	return [...tasks].sort((a, b) => {
+		const dueCompare = (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31");
+		if (dueCompare !== 0) return dueCompare;
+
+		const priorityCompare = (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3);
+		if (priorityCompare !== 0) return priorityCompare;
+
+		const fileCompare = a.filePath.localeCompare(b.filePath);
+		if (fileCompare !== 0) return fileCompare;
+
+		return a.lineNumber - b.lineNumber;
+	});
+}
+
 function renderTaskStream(
 	parent: HTMLElement,
 	options: {
@@ -433,18 +469,11 @@ export function renderTasksSection(parent: HTMLElement, ctx: HomeViewContext): v
 	});
 	const taskService = new TaskService(ctx.app);
 
-	taskService.getHomeTasks().then(({ overdue, dueToday, inProgress }) => {
+	taskService.getHomeTasks().then(({ overdue, dueToday, dueTomorrow, inProgress }) => {
 		const overdueKeys = new Set(overdue.map(getTaskKey));
-		const urgentTasks = [...overdue, ...dueToday];
-		const sortedInProgress = [...inProgress].sort((a, b) => {
-			const dueCompare = (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31");
-			if (dueCompare !== 0) return dueCompare;
-
-			const fileCompare = a.filePath.localeCompare(b.filePath);
-			if (fileCompare !== 0) return fileCompare;
-
-			return a.lineNumber - b.lineNumber;
-		});
+		const urgentTasks = [...sortHomeTasks(overdue), ...sortHomeTasks(dueToday)];
+		const tomorrowTasks = sortHomeTasks(dueTomorrow);
+		const sortedInProgress = sortHomeTasks(inProgress);
 		const visibleInProgress = sortedInProgress.filter((task) => !hasDoingAncestor(task));
 
 		const hero = createElement("div", { cls: "umos-home-tasks-hero", parent: section });
@@ -461,14 +490,14 @@ export function renderTasksSection(parent: HTMLElement, ctx: HomeViewContext): v
 		});
 		createElement("div", {
 			cls: "umos-home-tasks-subtitle",
-			text: getHeroSubtitle(urgentTasks.length, overdue.length, sortedInProgress.length),
+			text: getHeroSubtitle(urgentTasks.length, tomorrowTasks.length, overdue.length, sortedInProgress.length),
 			parent: heroCopy,
 		});
 
 		const totalCard = createElement("div", { cls: "umos-home-tasks-total", parent: hero });
 		createElement("span", {
 			cls: "umos-home-tasks-total-value",
-			text: String(urgentTasks.length + sortedInProgress.length),
+			text: String(urgentTasks.length + tomorrowTasks.length + sortedInProgress.length),
 			parent: totalCard,
 		});
 		createElement("span", {
@@ -479,6 +508,7 @@ export function renderTasksSection(parent: HTMLElement, ctx: HomeViewContext): v
 
 		const metrics = createElement("div", { cls: "umos-home-tasks-metrics", parent: section });
 		renderMetric(metrics, "today", urgentTasks.length, "calendar", "is-today");
+		renderMetric(metrics, "tomorrow", tomorrowTasks.length, "calendar-days", "is-tomorrow");
 		renderMetric(metrics, "overdue", overdue.length, "flame", "is-overdue");
 		renderMetric(metrics, "in progress", visibleInProgress.length, "play", "is-progress");
 
@@ -500,7 +530,23 @@ export function renderTasksSection(parent: HTMLElement, ctx: HomeViewContext): v
 			limit: 5,
 		});
 
-		if (visibleInProgress.length > 0 || urgentTasks.length === 0) {
+		renderTaskStream(section, {
+			title: "Tomorrow",
+			caption:
+				tomorrowTasks.length > 0
+					? "What can be prepared next"
+					: "No deadlines tomorrow",
+			count: tomorrowTasks.length,
+			icon: "calendar-days",
+			tone: "progress",
+			tasks: tomorrowTasks,
+			overdueKeys,
+			ctx,
+			emptyText: "Nothing planned for tomorrow",
+			limit: 5,
+		});
+
+		if (visibleInProgress.length > 0 || (urgentTasks.length === 0 && tomorrowTasks.length === 0)) {
 			renderTaskStream(section, {
 				title: "In Progress",
 				caption: "Started work waiting for the next step",

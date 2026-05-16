@@ -9,6 +9,9 @@ node_modules/
 
 # Obsidian plugin runtime data
 data.json
+sync-secrets.local.json
+sync-state.local.json
+sync-debug.local.log
 
 # Dev tooling
 .hotreload

@@ -4,6 +4,7 @@ import { UmOSSettings, UmOSData } from "../settings/Settings";
 import { PrayerService } from "../religion/prayer/PrayerService";
 import { StatsEngine } from "../stats/StatsEngine";
 import { WeatherService } from "../weather/WeatherService";
+import type UmOSPlugin from "../main";
 
 export interface ActiveContentItem {
 	name: string;
@@ -25,6 +26,7 @@ export interface RecentClosedNote {
 
 export interface HomeViewContext {
 	app: App;
+	plugin: UmOSPlugin;
 	eventBus: EventBus;
 	settings: UmOSSettings;
 	getData: () => UmOSData;

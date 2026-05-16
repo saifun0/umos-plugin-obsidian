@@ -2,6 +2,7 @@ import { App, TFile, moment } from 'obsidian';
 import UmOSPlugin from '../../main';
 import { Task, ITask, TaskStatus, ITaskQuery } from './Task';
 import { TaskParser } from './TaskParser';
+import { TaskNoteService } from './TaskNoteService';
 import { DailyNoteEnhancer } from '../../daily/DailyNoteEnhancer';
 import { getTodayISO } from '../../utils/date';
 
@@ -12,6 +13,12 @@ export interface ITaskStats {
     pending: number;
     overdue: number;
     completionPercentage: number;
+}
+
+export interface ICompletedTaskBuckets {
+    today: Task[];
+    last7: Task[];
+    last30: Task[];
 }
 
 export class TaskService {
@@ -122,6 +129,56 @@ export class TaskService {
         return allTasks;
     }
 
+    public async getFlatTasksWithQuery(query: ITaskQuery): Promise<Task[]> {
+        let allTasks: Task[] = [];
+        const files = this.getFilesToScan(query);
+
+        for (const file of files) {
+            const fileTasks = await this.getTasksFromFile(file);
+            allTasks.push(...this.flattenTasks(fileTasks));
+        }
+
+        return this.filterTasks(allTasks, query);
+    }
+
+    public async getCompletedTaskBuckets(query: ITaskQuery): Promise<ICompletedTaskBuckets> {
+        const tasks = await this.getFlatTasksWithQuery({
+            ...query,
+            status: undefined,
+            dateFrom: undefined,
+            dateTo: undefined,
+        });
+        const doneTasks = tasks
+            .filter(task => task.status === 'done' && task.doneDate && moment(task.doneDate, 'YYYY-MM-DD', true).isValid())
+            .sort((a, b) => this.compareCompletedTasks(a, b));
+
+        return {
+            today: this.filterCompletedWithinDays(doneTasks, 1),
+            last7: this.filterCompletedWithinDays(doneTasks, 7),
+            last30: this.filterCompletedWithinDays(doneTasks, 30),
+        };
+    }
+
+    private filterCompletedWithinDays(tasks: Task[], days: number): Task[] {
+        const today = moment().startOf('day');
+        const from = today.clone().subtract(Math.max(days - 1, 0), 'days');
+
+        return tasks.filter(task => {
+            const doneDate = moment(task.doneDate).startOf('day');
+            return !doneDate.isBefore(from, 'day') && !doneDate.isAfter(today, 'day');
+        });
+    }
+
+    private compareCompletedTasks(a: Task, b: Task): number {
+        const doneCompare = (b.doneDate ?? '').localeCompare(a.doneDate ?? '');
+        if (doneCompare !== 0) return doneCompare;
+
+        const fileCompare = a.filePath.localeCompare(b.filePath);
+        if (fileCompare !== 0) return fileCompare;
+
+        return a.lineNumber - b.lineNumber;
+    }
+
     public async updateTask(task: Task): Promise<void> {
         const file = this.app.vault.getAbstractFileByPath(task.filePath) as TFile;
         if (!file) {
@@ -132,10 +189,14 @@ export class TaskService {
         try {
             const content = await this.app.vault.read(file);
             const lines = content.split(/\r?\n/);
+            this.normalizeDoneDateForStatus(task);
 
             if (lines.length > task.lineNumber) {
                 lines[task.lineNumber] = this.reconstructTaskString(task);
                 await this.app.vault.modify(file, lines.join('\n'));
+                if (task.status === 'done') {
+                    await new TaskNoteService(this.app, this.plugin).archiveTaskNoteForTask(task);
+                }
                 this.emitTasksChanged('update', task.filePath);
             }
         } catch (e) {
@@ -173,12 +234,19 @@ export class TaskService {
         try {
             const content = await this.app.vault.read(file);
             const lines = content.split(/\r?\n/);
+            this.normalizeDoneDateForStatus(task);
             const taskLine = this.reconstructTaskString(task);
 
-            const insertIdx = this.findTasksSectionInsertIndex(lines);
+            let insertIdx = this.findTasksSectionInsertIndex(lines);
+            if (insertIdx === -1 && this.isDailyNotePath(file.path)) {
+                insertIdx = this.ensureTasksSection(lines);
+            }
             let actualLine: number;
             if (insertIdx !== -1) {
                 lines.splice(insertIdx, 0, taskLine);
+                if (this.needsBlankAfterInsertedTask(lines, insertIdx)) {
+                    lines.splice(insertIdx + 1, 0, '');
+                }
                 actualLine = insertIdx;
             } else {
                 actualLine = lines.length;
@@ -254,8 +322,9 @@ export class TaskService {
             const content = await this.app.vault.read(file);
             const lines = content.split(/\r?\n/);
 
-            if (lines.length > task.lineNumber) {
-                lines.splice(task.lineNumber, 1);
+            if (lines.length > task.lineNumber && this.isTaskLine(lines[task.lineNumber])) {
+                const deleteCount = this.getTaskTreeDeleteCount(lines, task.lineNumber);
+                lines.splice(task.lineNumber, deleteCount);
                 await this.app.vault.modify(file, lines.join('\n'));
                 this.emitTasksChanged('delete', task.filePath);
             }
@@ -265,16 +334,16 @@ export class TaskService {
     }
 
     /**
-     * Find the line index to insert a new task under "## Tasks" section.
+     * Find the line index to insert a new task under a Tasks section.
      * Returns the index of the last task line + 1 in that section,
      * or right after the heading if no tasks exist yet.
      * Returns -1 if no such heading found.
      */
     private findTasksSectionInsertIndex(lines: string[]): number {
-        // Find "## Tasks" heading (case-insensitive for the heading level)
+        // Find "## Tasks" / "## Задачи", including headings with emoji prefixes.
         let headingIdx = -1;
         for (let i = 0; i < lines.length; i++) {
-            if (/^#{1,3}\s+Tasks(\s+projects)?\s*$/i.test(lines[i])) {
+            if (this.isTasksSectionHeading(lines[i])) {
                 headingIdx = i;
                 break;
             }
@@ -314,7 +383,7 @@ export class TaskService {
             }
 
             // Track last task line in this section
-            if (/^\s*- \[.\]/.test(line)) {
+            if (this.isTaskLine(line)) {
                 lastTaskIdx = insertIdx;
                 insertIdx++;
                 continue;
@@ -332,6 +401,93 @@ export class TaskService {
 
         if (lastTaskIdx !== -1) return lastTaskIdx + 1;
         return insertIdx;
+    }
+
+    private ensureTasksSection(lines: string[]): number {
+        const heading = this.plugin?.settings.language === 'ru' ? '## Задачи' : '## Tasks';
+        const beforeIdx = this.findDailyTaskSectionFallbackIndex(lines);
+
+        if (beforeIdx !== -1) {
+            const sectionLines: string[] = [];
+            if (beforeIdx > 0 && lines[beforeIdx - 1].trim() !== '') sectionLines.push('');
+            sectionLines.push(heading, '', '');
+            lines.splice(beforeIdx, 0, ...sectionLines);
+            return beforeIdx + sectionLines.length - 1;
+        }
+
+        if (lines.length > 0 && lines[lines.length - 1].trim() !== '') lines.push('');
+        lines.push(heading, '', '');
+        return lines.length - 1;
+    }
+
+    private findDailyTaskSectionFallbackIndex(lines: string[]): number {
+        const boundaryHeadings = new Set(['review', 'notes', 'рецензия', 'ревью', 'заметки']);
+
+        for (let i = 0; i < lines.length; i++) {
+            const title = this.getHeadingTitle(lines[i]);
+            if (!title) continue;
+            if (boundaryHeadings.has(this.normalizeHeadingTitle(title))) return i;
+        }
+
+        return -1;
+    }
+
+    private isTasksSectionHeading(line: string): boolean {
+        const title = this.getHeadingTitle(line);
+        if (!title) return false;
+
+        return new Set([
+            'task',
+            'tasks',
+            'tasks projects',
+            'project tasks',
+            'задача',
+            'задачи',
+            'задачи проекта',
+            'проектные задачи',
+        ]).has(this.normalizeHeadingTitle(title));
+    }
+
+    private getHeadingTitle(line: string): string | null {
+        const match = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
+        return match ? match[1] : null;
+    }
+
+    private normalizeHeadingTitle(title: string): string {
+        return title
+            .replace(/[`*_~]/g, '')
+            .replace(/[^\p{L}\p{N}\s-]/gu, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    }
+
+    private getTaskTreeDeleteCount(lines: string[], startIndex: number): number {
+        const parentIndent = this.getTaskLineIndent(lines[startIndex]);
+        if (parentIndent === null) return 1;
+
+        let count = 1;
+        for (let i = startIndex + 1; i < lines.length; i++) {
+            const childIndent = this.getTaskLineIndent(lines[i]);
+            if (childIndent === null || childIndent <= parentIndent) break;
+            count++;
+        }
+        return count;
+    }
+
+    private isTaskLine(line: string): boolean {
+        return this.getTaskLineIndent(line) !== null;
+    }
+
+    private getTaskLineIndent(line: string): number | null {
+        const match = line.match(/^(\s*)- \[[ \/xX\-]\]/);
+        if (!match) return null;
+        return match[1].replace(/\t/g, '    ').length;
+    }
+
+    private needsBlankAfterInsertedTask(lines: string[], taskIndex: number): boolean {
+        const nextLine = lines[taskIndex + 1];
+        return !!nextLine && nextLine.trim() !== '' && (/^#{1,6}\s/.test(nextLine) || /^---\s*$/.test(nextLine));
     }
 
     public async getTagStats(query: ITaskQuery): Promise<{ tag: string; count: number; done: number }[]> {
@@ -441,6 +597,9 @@ export class TaskService {
 
                 await this.app.vault.modify(file, lines.join('\n'));
                 task.status = nextStatus;
+                if (nextStatus === 'done') {
+                    await new TaskNoteService(this.app, this.plugin).archiveTaskNoteForTask(task);
+                }
                 this.emitTasksChanged('status', task.filePath);
             }
         } catch (e) {
@@ -505,22 +664,24 @@ export class TaskService {
         return { overdue, dueToday };
     }
 
-    public async getHomeTasks(): Promise<{ overdue: Task[]; dueToday: Task[]; inProgress: Task[] }> {
+    public async getHomeTasks(): Promise<{ overdue: Task[]; dueToday: Task[]; dueTomorrow: Task[]; inProgress: Task[] }> {
         const allTasks = await this.getTasksWithQuery({});
         const flatTasks = this.flattenTasks(allTasks);
         const today = moment().startOf('day');
+        const tomorrow = today.clone().add(1, 'day');
 
         const active = flatTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled');
         const overdue = active.filter(t => t.dueDate && moment(t.dueDate).isBefore(today));
         const dueToday = active.filter(t => t.dueDate && moment(t.dueDate).isSame(today, 'day'));
+        const dueTomorrow = active.filter(t => t.dueDate && moment(t.dueDate).isSame(tomorrow, 'day'));
         const urgentKeys = new Set(
-            [...overdue, ...dueToday].map(task => `${task.filePath}:${task.lineNumber}`)
+            [...overdue, ...dueToday, ...dueTomorrow].map(task => `${task.filePath}:${task.lineNumber}`)
         );
         const inProgress = active.filter(
             t => t.status === 'doing' && !urgentKeys.has(`${t.filePath}:${t.lineNumber}`)
         );
 
-        return { overdue, dueToday, inProgress };
+        return { overdue, dueToday, dueTomorrow, inProgress };
     }
 
     private getFilesToScan(query: ITaskQuery): TFile[] {
@@ -662,6 +823,15 @@ export class TaskService {
     private extractDateFromPath(path: string): string | null {
         const match = path.match(/(\d{4}-\d{2}-\d{2})/);
         return match ? match[1] : null;
+    }
+
+    private normalizeDoneDateForStatus(task: Task): void {
+        if (task.status === 'done') {
+            if (!task.doneDate) task.doneDate = moment().format('YYYY-MM-DD');
+            return;
+        }
+
+        task.doneDate = null;
     }
 
     public reconstructTaskString(task: Task): string {

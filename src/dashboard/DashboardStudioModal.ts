@@ -1,5 +1,6 @@
-import { Component, MarkdownRenderer, Modal, Notice, Setting } from "obsidian";
+import { Component, MarkdownRenderer, Modal, Notice, Setting, setIcon } from "obsidian";
 import type UmOSPlugin from "../main";
+import { UMOS_ICON_ID } from "../branding";
 import {
 	DASHBOARD_PRESETS,
 	createDashboardBlock,
@@ -58,7 +59,15 @@ export class DashboardStudioModal extends Modal {
 	private render(): void {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl("h2", { text: "Dashboard Studio" });
+		const header = contentEl.createDiv({ cls: "umos-dashboard-studio-header" });
+		const mark = header.createDiv({ cls: "umos-dashboard-studio-logo" });
+		setIcon(mark, UMOS_ICON_ID);
+		const titleWrap = header.createDiv({ cls: "umos-dashboard-studio-title-wrap" });
+		titleWrap.createEl("h2", { text: "Dashboard Studio" });
+		titleWrap.createDiv({
+			cls: "umos-dashboard-studio-subtitle",
+			text: "Build, preview, and ship your umOS dashboards.",
+		});
 
 		const profiles = this.ensureProfiles();
 		if (!this.selectedProfileId && profiles.length > 0) {
@@ -429,7 +438,7 @@ export class DashboardStudioModal extends Modal {
 
 	private getWidgetCategory(definition: WidgetDefinition): string {
 		const blockName = definition.blockName;
-		if (["schedule", "tasks-widget", "tasks-kanban", "tasks-stats-widget", "kanban-board", "umos-input"].includes(blockName)) {
+		if (["schedule", "tasks-widget", "tasks-kanban", "tasks-stats-widget", "tasks-completed-widget", "kanban-board", "umos-input", "progress-table"].includes(blockName)) {
 			return "productivity";
 		}
 		if (["daily-nav", "word-of-day", "words-of-day", "daily-review", "umos-stats", "prayer-widget"].includes(blockName)) {

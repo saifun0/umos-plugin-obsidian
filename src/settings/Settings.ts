@@ -1,4 +1,5 @@
 import type { DashboardProfile } from "../dashboard/types";
+import type { SyncMode, SyncProvider, SyncRunStatus, SyncRunSummary } from "../sync/types";
 
 export interface NavCard {
 	name: string;
@@ -73,6 +74,72 @@ export interface CommandHistoryItem {
 	executedAt: number;
 }
 
+export interface ProgressTableData {
+	id: string;
+	cells: Record<string, boolean>;
+	updatedAt: number;
+}
+
+export interface FocusSessionActive {
+	id: string;
+	title: string;
+	taskFilePath?: string;
+	taskLineNumber?: number;
+	plannedMinutes: number;
+	startedAt: number;
+	pausedAt?: number;
+	pausedSeconds: number;
+	state: "running" | "paused";
+	logToDaily: boolean;
+}
+
+export interface FocusSessionRecord {
+	id: string;
+	title: string;
+	taskFilePath?: string;
+	taskLineNumber?: number;
+	plannedMinutes: number;
+	startedAt: number;
+	endedAt: number;
+	durationSeconds: number;
+	status: "completed" | "cancelled";
+	notePath?: string;
+}
+
+export interface FocusSessionData {
+	active: FocusSessionActive | null;
+	sessions: FocusSessionRecord[];
+}
+
+export interface TriageResolvedItem {
+	resolvedAt: number;
+	projectPath?: string;
+	kind?: "task" | "note" | "image" | "file" | "capture";
+	title?: string;
+	subtitle?: string;
+	detail?: string;
+	reason?: string;
+	icon?: string;
+	accent?: string;
+	updatedAt?: number;
+	path?: string;
+	line?: number;
+}
+
+export interface TriageData {
+	resolved: Record<string, TriageResolvedItem>;
+	snoozedUntil: Record<string, number>;
+	linkedProjects: Record<string, string>;
+	reopened: Record<string, TriageResolvedItem>;
+}
+
+export interface VaultSyncData {
+	lastRunAt: number;
+	lastStatus: SyncRunStatus;
+	lastMessage: string;
+	lastSummary: SyncRunSummary | null;
+}
+
 export interface UmOSSettings {
 	language: "en" | "ru";
 
@@ -107,10 +174,40 @@ export interface UmOSSettings {
 	homeStatsMetrics: string[];
 	homeScheduleAdvanceDelayMinutes: number;
 	homeScheduleShowPastLessons: boolean;
+	homeQuickCaptureDefaultNoteFolder: string;
+	homeVaultHealthLookbackDays: number;
+	homeAlertsIncludeVaultHealth: boolean;
+
+	graphMapsAutoUpdate: boolean;
+	graphMapsDebounceSeconds: number;
+	graphMapsRootPath: string;
+	graphMapsMapsPath: string;
+	graphMapsIncludeImageIndex: boolean;
+	graphMapsImageIndexPath: string;
 
 	dailySections: DailySections;
 
+	taskCalendarDefaultView: "month" | "list";
+	taskCalendarFirstDayOfWeek: number;
+	taskCalendarTaskPaths: string;
+	taskCalendarMaxItemsPerDay: number;
+	taskCalendarShowCompleted: boolean;
+	taskCalendarShowCancelled: boolean;
+	taskCalendarShowProgress: boolean;
+	taskCalendarShowDailyNoteTasks: boolean;
+	taskCalendarShowTaskPaths: boolean;
+
 	syncDataPath: string;
+	syncProvider: SyncProvider;
+	syncRemoteRoot: string;
+	syncMode: SyncMode;
+	syncEncryptionEnabled: boolean;
+	syncOnStartup: boolean;
+	syncIntervalMinutes: number;
+	syncDebounceSeconds: number;
+	syncIgnorePatterns: string;
+	syncMaxFileSizeMb: number;
+	syncDryRun: boolean;
 	dashboardProfilesExportPath: string;
 	userNickname: string;
 	userAvatarUrl: string;
@@ -170,6 +267,10 @@ export interface UmOSData {
 
 	dashboardProfiles: DashboardProfile[];
 	commandHistory: CommandHistoryItem[];
+	progressTables: Record<string, ProgressTableData>;
+	focus: FocusSessionData;
+	triage: TriageData;
+	sync: VaultSyncData;
 
 	syncedAt?: number;
 }
@@ -233,6 +334,16 @@ export const DEFAULT_SETTINGS: UmOSSettings = {
 	homeStatsMetrics: ["mood", "productivity", "sleep", "prayer_count"],
 	homeScheduleAdvanceDelayMinutes: 60,
 	homeScheduleShowPastLessons: true,
+	homeQuickCaptureDefaultNoteFolder: "10 Inbox",
+	homeVaultHealthLookbackDays: 7,
+	homeAlertsIncludeVaultHealth: true,
+
+	graphMapsAutoUpdate: true,
+	graphMapsDebounceSeconds: 5,
+	graphMapsRootPath: "05 Dashboards",
+	graphMapsMapsPath: "05 Dashboards/Maps",
+	graphMapsIncludeImageIndex: true,
+	graphMapsImageIndexPath: "00 Files/Image Index.md",
 
 	habits: [
 		{ id: "exercise", name: "Exercise", icon: "🏋️", color: "#e74c3c" },
@@ -249,7 +360,27 @@ export const DEFAULT_SETTINGS: UmOSSettings = {
 		notes: true,
 	},
 
+	taskCalendarDefaultView: "month",
+	taskCalendarFirstDayOfWeek: 1,
+	taskCalendarTaskPaths: "",
+	taskCalendarMaxItemsPerDay: 3,
+	taskCalendarShowCompleted: true,
+	taskCalendarShowCancelled: false,
+	taskCalendarShowProgress: true,
+	taskCalendarShowDailyNoteTasks: true,
+	taskCalendarShowTaskPaths: true,
+
 	syncDataPath: "",
+	syncProvider: "webdav",
+	syncRemoteRoot: "umOS Sync",
+	syncMode: "bidirectional",
+	syncEncryptionEnabled: false,
+	syncOnStartup: false,
+	syncIntervalMinutes: 0,
+	syncDebounceSeconds: 0,
+	syncIgnorePatterns: "",
+	syncMaxFileSizeMb: 50,
+	syncDryRun: false,
 	dashboardProfilesExportPath: "umOS/dashboard-profiles.json",
 	userNickname: "",
 	userAvatarUrl: "",
@@ -303,6 +434,23 @@ export const DEFAULT_DATA: UmOSData = {
 	kanbanBoards: {},
 	dashboardProfiles: [],
 	commandHistory: [],
+	progressTables: {},
+	focus: {
+		active: null,
+		sessions: [],
+	},
+	triage: {
+		resolved: {},
+		snoozedUntil: {},
+		linkedProjects: {},
+		reopened: {},
+	},
+	sync: {
+		lastRunAt: 0,
+		lastStatus: "idle",
+		lastMessage: "",
+		lastSummary: null,
+	},
 
 	syncedAt: 0,
 };

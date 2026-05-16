@@ -212,7 +212,8 @@ export class TasksKanbanWidget extends BaseWidget {
                     this.isUpdating = true;
                     await this.service.deleteTask(deleted);
                     setTimeout(() => { this.isUpdating = false; this.render(); }, 300);
-                }
+                },
+                this.plugin
             ).open();
         });
     }
@@ -238,7 +239,8 @@ export class TasksKanbanWidget extends BaseWidget {
                         this.isUpdating = true;
                         await this.service.deleteTask(deleted);
                         setTimeout(() => { this.isUpdating = false; this.render(); }, 300);
-                    }
+                    },
+                    this.plugin
                 ).open();
             }));
 
@@ -302,7 +304,7 @@ export class TasksKanbanWidget extends BaseWidget {
                 await this.service.addSubtasksAfterLine(filePath, lineNum, task.indentation, subtasks);
             }
             setTimeout(() => this.render(), 300);
-        }).open();
+        }, undefined, this.plugin).open();
     }
 
     private getTodayDailyNotePath(): string {

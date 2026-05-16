@@ -1,4 +1,4 @@
-import { TFile } from "obsidian";
+import { normalizePath, TFile } from "obsidian";
 import { HomeViewContext } from "../types";
 import { createElement } from "../../utils/dom";
 import {
@@ -11,12 +11,29 @@ import {
 function getDailyNotePathForDate(dateISO: string, ctx: HomeViewContext): string {
 	const parts = dateISO.split("-");
 	if (parts.length !== 3) {
-		return `${ctx.settings.dailyNotesPath}/${dateISO}.md`;
+		return normalizePath(`${ctx.settings.dailyNotesPath}/${dateISO}.md`);
 	}
 	const [year, month, day] = parts;
 	const format = ctx.settings.dailyNoteFormat || "YYYY-MM-DD";
 	const fileName = format.replace("YYYY", year).replace("MM", month).replace("DD", day);
-	return `${ctx.settings.dailyNotesPath}/${fileName}.md`;
+	return normalizePath(`${ctx.settings.dailyNotesPath}/${fileName}.md`);
+}
+
+function getTodayDailyNotePath(ctx: HomeViewContext): string {
+	return getDailyNotePathForDate(getTodayDateString(), ctx);
+}
+
+function hasTodayDailyNote(ctx: HomeViewContext): boolean {
+	return ctx.app.vault.getAbstractFileByPath(getTodayDailyNotePath(ctx)) instanceof TFile;
+}
+
+async function openOrCreateTodayDailyNote(ctx: HomeViewContext): Promise<void> {
+	if (ctx.createDailyNote) {
+		await ctx.createDailyNote();
+		return;
+	}
+
+	await ctx.app.workspace.openLinkText(getTodayDailyNotePath(ctx), "", false);
 }
 
 function resolveProfileAvatarUrl(ctx: HomeViewContext): string {
@@ -149,19 +166,53 @@ export function renderHeaderSection(parent: HTMLElement, ctx: HomeViewContext, v
 
 	const dailyBtn = createElement("button", {
 		cls: "umos-home-quick-btn",
+		attr: { type: "button" },
 		parent: quickRow,
 	});
 	createElement("span", { cls: "umos-home-quick-btn-icon", text: "📝", parent: dailyBtn });
 	createElement("span", { text: "Daily Note", parent: dailyBtn });
-	dailyBtn.addEventListener("click", async () => {
-		if (ctx.createDailyNote) {
-			await ctx.createDailyNote();
-		} else {
-			const today = getTodayDateString();
-			const path = getDailyNotePathForDate(today, ctx);
-			await ctx.app.workspace.openLinkText(path, "", false);
+
+	let reminderEl: HTMLElement | null = null;
+	const syncDailyReminder = () => {
+		if (reminderEl && hasTodayDailyNote(ctx)) {
+			reminderEl.remove();
+			reminderEl = null;
 		}
-	});
+	};
+	const runDailyNoteAction = async () => {
+		await openOrCreateTodayDailyNote(ctx);
+		syncDailyReminder();
+	};
+
+	dailyBtn.addEventListener("click", runDailyNoteAction);
+
+	if (!hasTodayDailyNote(ctx)) {
+		reminderEl = createElement("button", {
+			cls: "umos-home-daily-reminder",
+			attr: { type: "button" },
+			parent: header,
+		});
+		createElement("span", {
+			cls: "umos-home-daily-reminder-icon",
+			text: "!",
+			parent: reminderEl,
+		});
+		const reminderText = createElement("span", {
+			cls: "umos-home-daily-reminder-text",
+			parent: reminderEl,
+		});
+		createElement("span", {
+			cls: "umos-home-daily-reminder-title",
+			text: "Daily note not created",
+			parent: reminderText,
+		});
+		createElement("span", {
+			cls: "umos-home-daily-reminder-desc",
+			text: "Click to create today's note",
+			parent: reminderText,
+		});
+		reminderEl.addEventListener("click", runDailyNoteAction);
+	}
 
 	return clockEl as HTMLElement;
 }

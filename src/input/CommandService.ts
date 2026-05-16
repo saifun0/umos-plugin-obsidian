@@ -1,4 +1,4 @@
-import { MarkdownRenderChild, Notice, TFile, moment, normalizePath } from "obsidian";
+import { Notice, TFile, moment, normalizePath } from "obsidian";
 import type UmOSPlugin from "../main";
 import { DailyNoteEnhancer } from "../daily/DailyNoteEnhancer";
 import { Task } from "../productivity/tasks/Task";
@@ -15,15 +15,33 @@ export interface CommandInputConfig {
 	history?: boolean | string;
 }
 
+export interface CommandExecutionContext {
+	config?: CommandInputConfig;
+	sourcePath?: string | null;
+	notify?: boolean;
+	saveHistory?: boolean;
+}
+
+export interface CommandExecutionResult {
+	ok: boolean;
+	command: string;
+	message: string;
+	target?: string;
+	createdFile?: string;
+	openedFile?: string;
+}
+
 type CommandStatus = "success" | "failed";
 type CommandNoteTarget = "current" | "daily";
 type CountdownView = "full" | "focus" | "minimal";
 type Priority = "high" | "medium" | "low" | "none";
 type ScheduleType = ScheduleSlot["type"];
 
-interface CommandExecutionResult {
+interface InternalCommandResult {
 	message: string;
 	target?: string;
+	createdFile?: string;
+	openedFile?: string;
 }
 
 interface ParsedTaskCommand {
@@ -54,11 +72,85 @@ interface ParsedScheduleCommand {
 
 const COMMAND_LIMIT = 10;
 
-const HELP_ITEMS = [
-	{ cmd: "task", example: "task Prepare notes tomorrow #study !high" },
-	{ cmd: "countdown", example: "countdown Exam session 2026-07-01 accent:#27ae60 view:focus" },
-	{ cmd: "schedule", example: "schedule Math monday 09:00-10:30 room:301 type:lecture" },
-	{ cmd: "review", example: "review win Finished dashboard studio today" },
+export interface CommandHelpItem {
+	cmd: string;
+	title: string;
+	description: string;
+	usage: string;
+	example: string;
+	tokens: Array<{ value: string; detail: string }>;
+}
+
+export const COMMAND_HELP_ITEMS: CommandHelpItem[] = [
+	{
+		cmd: "task",
+		title: "Task command",
+		description: "Create a markdown task in the current note or daily note.",
+		usage: "Usage: > task Description today|tomorrow|YYYY-MM-DD #tag !high",
+		example: "task Prepare notes tomorrow #study !high",
+		tokens: [
+			{ value: "today", detail: "Due today" },
+			{ value: "tomorrow", detail: "Due tomorrow" },
+			{ value: "!high", detail: "High priority" },
+			{ value: "!medium", detail: "Medium priority" },
+			{ value: "!low", detail: "Low priority" },
+		],
+	},
+	{
+		cmd: "countdown",
+		title: "Countdown command",
+		description: "Add a countdown block to the current or daily note.",
+		usage: "Usage: > countdown Title YYYY-MM-DD [HH:mm] accent:#27ae60 view:focus target:current",
+		example: "countdown Exam session 2026-07-01 accent:#27ae60 view:focus",
+		tokens: [
+			{ value: "accent:#27ae60", detail: "Accent color" },
+			{ value: "view:focus", detail: "Focus view" },
+			{ value: "view:full", detail: "Full view" },
+			{ value: "view:minimal", detail: "Minimal view" },
+			{ value: "target:current", detail: "Write into current note" },
+			{ value: "target:daily", detail: "Write into daily note" },
+		],
+	},
+	{
+		cmd: "schedule",
+		title: "Schedule command",
+		description: "Update a schedule slot.",
+		usage: "Usage: > schedule Subject monday 09:00-10:30 room:301 type:lecture week:current",
+		example: "schedule Math monday 09:00-10:30 room:301 type:lecture",
+		tokens: [
+			{ value: "monday", detail: "Monday" },
+			{ value: "tuesday", detail: "Tuesday" },
+			{ value: "wednesday", detail: "Wednesday" },
+			{ value: "thursday", detail: "Thursday" },
+			{ value: "friday", detail: "Friday" },
+			{ value: "saturday", detail: "Saturday" },
+			{ value: "room:", detail: "Room" },
+			{ value: "teacher:", detail: "Teacher" },
+			{ value: "type:lecture", detail: "Lecture" },
+			{ value: "type:seminar", detail: "Seminar" },
+			{ value: "type:lab", detail: "Lab" },
+			{ value: "type:practice", detail: "Practice" },
+			{ value: "type:exam", detail: "Exam" },
+			{ value: "week:current", detail: "Current week" },
+			{ value: "week:week1", detail: "First week" },
+			{ value: "week:week2", detail: "Second week" },
+		],
+	},
+	{
+		cmd: "review",
+		title: "Review command",
+		description: "Save a daily or weekly review field.",
+		usage: "Usage: > review win|lesson|tomorrow|weekly_win|weekly_friction|weekly_next Text",
+		example: "review win Finished dashboard studio today",
+		tokens: [
+			{ value: "win", detail: "Review win" },
+			{ value: "lesson", detail: "Review lesson" },
+			{ value: "tomorrow", detail: "Review tomorrow" },
+			{ value: "weekly_win", detail: "Weekly win" },
+			{ value: "weekly_friction", detail: "Weekly friction" },
+			{ value: "weekly_next", detail: "Weekly next" },
+		],
+	},
 ];
 
 const REVIEW_KEYS: Record<string, string> = {
@@ -94,148 +186,50 @@ const DAY_ALIASES: Record<string, string> = {
 	Saturday: "saturday",
 };
 
-export class CommandInputWidget extends MarkdownRenderChild {
-	private service: TaskService;
-	private inputEl: HTMLInputElement | null = null;
-	private feedbackEl: HTMLElement | null = null;
-	private historyEl: HTMLElement | null = null;
+export class CommandService {
+	private taskService: TaskService;
 
-	constructor(
-		containerEl: HTMLElement,
-		private plugin: UmOSPlugin,
-		private config: CommandInputConfig,
-		private sourcePath: string | null
-	) {
-		super(containerEl);
-		this.service = new TaskService(plugin.app, plugin);
+	constructor(private plugin: UmOSPlugin) {
+		this.taskService = new TaskService(plugin.app, plugin);
 	}
 
-	onload(): void {
-		this.render();
-	}
-
-	private render(): void {
-		this.containerEl.empty();
-		const root = this.containerEl.createDiv({ cls: "umos-command-center" });
-		const commandRow = root.createDiv({ cls: "umos-command-input" });
-		this.inputEl = commandRow.createEl("input", {
-			cls: "umos-command-input-field",
-			attr: {
-				type: "text",
-				placeholder: this.config.placeholder || "task Prepare notes tomorrow #study !high",
-			},
-		}) as HTMLInputElement;
-		const button = commandRow.createEl("button", { text: "Run", cls: "umos-command-input-button" });
-
-		this.feedbackEl = root.createDiv({ cls: "umos-command-feedback" });
-		if (this.isConfigEnabled(this.config.help, true)) {
-			this.renderHelp(root);
-		}
-		if (this.isConfigEnabled(this.config.history, true)) {
-			this.historyEl = root.createDiv({ cls: "umos-command-history" });
-			this.renderHistory();
-		}
-
-		const run = async () => {
-			const raw = this.inputEl?.value.trim() ?? "";
-			if (!raw) return;
-			button.disabled = true;
-			try {
-				const ok = await this.execute(raw);
-				if (ok && this.inputEl) this.inputEl.value = "";
-			} finally {
-				button.disabled = false;
-			}
-		};
-
-		button.addEventListener("click", () => void run());
-		this.inputEl.addEventListener("keydown", (event) => {
-			if (event.key === "Enter") {
-				event.preventDefault();
-				void run();
-			}
-			if (event.key === "ArrowUp") {
-				const last = this.plugin.data_store.commandHistory?.[0]?.raw;
-				if (last && this.inputEl && !this.inputEl.value) {
-					event.preventDefault();
-					this.inputEl.value = last;
-				}
-			}
-		});
-	}
-
-	private renderHelp(root: HTMLElement): void {
-		const help = root.createDiv({ cls: "umos-command-help" });
-		for (const item of HELP_ITEMS) {
-			const pill = help.createEl("button", {
-				cls: "umos-command-help-pill",
-				text: item.example,
-				attr: { type: "button", title: item.example, "data-command": item.cmd },
-			});
-			pill.addEventListener("click", () => {
-				if (!this.inputEl) return;
-				this.inputEl.value = item.example;
-				this.inputEl.focus();
-			});
-		}
-	}
-
-	private renderHistory(): void {
-		if (!this.historyEl) return;
-		this.historyEl.empty();
-		const history = (this.plugin.data_store.commandHistory ?? []).slice(0, COMMAND_LIMIT);
-		if (history.length === 0) return;
-
-		const title = this.historyEl.createDiv({ cls: "umos-command-history-title", text: "History" });
-		title.createSpan({ text: " · ↑ repeats the latest command from an empty input" });
-
-		for (const item of history) {
-			const row = this.historyEl.createEl("button", {
-				cls: `umos-command-history-item is-${item.status}`,
-				attr: { type: "button", title: item.message },
-			});
-			row.createSpan({ cls: "umos-command-history-command", text: item.command || this.getCommandName(item.raw) });
-			row.createSpan({ cls: "umos-command-history-raw", text: item.raw });
-			row.createSpan({ cls: "umos-command-history-status", text: item.status === "success" ? "ok" : "fail" });
-			row.addEventListener("click", () => {
-				if (!this.inputEl) return;
-				this.inputEl.value = item.raw;
-				this.inputEl.focus();
-			});
-		}
-	}
-
-	private async execute(raw: string): Promise<boolean> {
-		const [commandRaw, ...rest] = raw.split(/\s+/);
+	async execute(raw: string, context: CommandExecutionContext = {}): Promise<CommandExecutionResult> {
+		const trimmed = raw.trim();
+		const [commandRaw = "", ...rest] = trimmed.split(/\s+/);
 		const command = commandRaw.toLowerCase();
+		const shouldNotify = context.notify !== false;
 
 		try {
-			let result: CommandExecutionResult;
-			if (command === "task") result = await this.executeTask(rest);
-			else if (command === "countdown") result = await this.executeCountdown(rest);
+			if (!trimmed) throw new Error("Command is empty.");
+
+			let result: InternalCommandResult;
+			if (command === "task") result = await this.executeTask(rest, context);
+			else if (command === "countdown") result = await this.executeCountdown(rest, context);
 			else if (command === "schedule") result = await this.executeSchedule(rest);
 			else if (command === "review") result = await this.executeReview(rest);
 			else throw new Error(`Unknown command "${commandRaw}". Try task, countdown, schedule, or review.`);
 
-			await this.recordHistory(raw, command, "success", result.message, result.target);
-			this.plugin.eventBus.emit("command:executed", { command: raw, target: result.target ?? result.message });
-			this.setFeedback(result.message, "success");
-			new Notice(`✅ ${result.message}`);
-			return true;
+			if (context.saveHistory !== false) {
+				await this.recordHistory(trimmed, command, "success", result.message, result.target);
+			}
+			this.plugin.eventBus.emit("command:executed", { command: trimmed, target: result.target ?? result.message });
+			if (shouldNotify) new Notice(`✅ ${result.message}`);
+			return { ok: true, command, ...result };
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			await this.recordHistory(raw, command, "failed", message);
-			this.plugin.eventBus.emit("command:failed", { command: raw, reason: message });
-			this.setFeedback(message, "failed");
-			new Notice(`umOS command: ${message}`);
-			return false;
+			if (context.saveHistory !== false) {
+				await this.recordHistory(trimmed, command || "command", "failed", message);
+			}
+			this.plugin.eventBus.emit("command:failed", { command: trimmed, reason: message });
+			if (shouldNotify) new Notice(`umOS command: ${message}`);
+			return { ok: false, command: command || "command", message };
 		}
 	}
 
-	private async executeTask(tokens: string[]): Promise<CommandExecutionResult> {
+	private async executeTask(tokens: string[], context: CommandExecutionContext): Promise<InternalCommandResult> {
 		const parsed = this.parseTask(tokens);
 		if (!parsed.description) throw new Error("Task needs a description after task.");
-		const filePath = this.resolveTaskTargetPath();
+		const filePath = this.resolveTaskTargetPath(context);
 		if (!filePath) throw new Error("Could not determine the task file.");
 
 		const task = new Task("", filePath, 0);
@@ -243,7 +237,7 @@ export class CommandInputWidget extends MarkdownRenderChild {
 		task.dueDate = parsed.dueDate;
 		task.priority = parsed.priority;
 		task.tags = parsed.tags;
-		const line = await this.service.createTask(task, filePath);
+		const line = await this.taskService.createTask(task, filePath);
 		if (line < 0) throw new Error(`Could not add task to ${filePath}.`);
 		return {
 			message: `Task added: ${parsed.description}`,
@@ -251,12 +245,12 @@ export class CommandInputWidget extends MarkdownRenderChild {
 		};
 	}
 
-	private async executeCountdown(tokens: string[]): Promise<CommandExecutionResult> {
+	private async executeCountdown(tokens: string[], context: CommandExecutionContext): Promise<InternalCommandResult> {
 		const parsed = this.parseCountdown(tokens);
 		if (!parsed.title) throw new Error("Countdown needs a title.");
 		if (!parsed.date) throw new Error("Countdown needs a date: YYYY-MM-DD or YYYY-MM-DD HH:MM.");
 
-		const file = await this.ensureTextTargetFile(parsed.target);
+		const file = await this.ensureTextTargetFile(context, parsed.target);
 		const block = [
 			"```countdown",
 			`title: ${parsed.title}`,
@@ -269,10 +263,11 @@ export class CommandInputWidget extends MarkdownRenderChild {
 		return {
 			message: `Countdown added: ${parsed.title}`,
 			target: file.path,
+			createdFile: file.path,
 		};
 	}
 
-	private async executeSchedule(tokens: string[]): Promise<CommandExecutionResult> {
+	private async executeSchedule(tokens: string[]): Promise<InternalCommandResult> {
 		const parsed = this.parseSchedule(tokens);
 		const slots = this.plugin.data_store.schedule[parsed.weekKey][parsed.day] ?? [];
 		let slotIndex = slots.findIndex((slot) => slot.startTime === parsed.startTime);
@@ -297,7 +292,7 @@ export class CommandInputWidget extends MarkdownRenderChild {
 		};
 	}
 
-	private async executeReview(tokens: string[]): Promise<CommandExecutionResult> {
+	private async executeReview(tokens: string[]): Promise<InternalCommandResult> {
 		const keyRaw = tokens.shift()?.toLowerCase();
 		if (!keyRaw) throw new Error("Review needs a key: win, lesson, tomorrow, weekly_win, weekly_friction, weekly_next.");
 		const property = REVIEW_KEYS[keyRaw];
@@ -368,7 +363,6 @@ export class CommandInputWidget extends MarkdownRenderChild {
 
 		for (let i = 0; i < tokens.length; i++) {
 			const token = tokens[i];
-			const lower = token.toLowerCase();
 			if (/^accent:/i.test(token)) {
 				accent = token.slice("accent:".length);
 				if (accent && !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(accent)) {
@@ -477,17 +471,22 @@ export class CommandInputWidget extends MarkdownRenderChild {
 		};
 	}
 
-	private resolveTaskTargetPath(): string | null {
-		if (this.config.file?.trim()) return this.config.file.trim();
-		const target = String(this.config.target || this.config.create_in || "").toLowerCase();
-		if ((target === "current" || target === "note") && this.sourcePath) return this.sourcePath;
+	private resolveTaskTargetPath(context: CommandExecutionContext): string | null {
+		const config = context.config ?? {};
+		if (config.file?.trim()) return config.file.trim();
+		const target = String(config.target || config.create_in || "").toLowerCase();
+		if ((target === "current" || target === "note") && context.sourcePath) return context.sourcePath;
 		return this.getTodayDailyNotePath();
 	}
 
-	private async ensureTextTargetFile(targetOverride?: CommandNoteTarget): Promise<TFile> {
-		const target = String(targetOverride || this.config.target || this.config.create_in || "").toLowerCase();
-		if ((target === "daily" || !this.sourcePath) && !this.config.file) return this.ensureDailyNote();
-		const path = this.config.file?.trim() || this.sourcePath || this.getTodayDailyNotePath();
+	private async ensureTextTargetFile(
+		context: CommandExecutionContext,
+		targetOverride?: CommandNoteTarget
+	): Promise<TFile> {
+		const config = context.config ?? {};
+		const target = String(targetOverride || config.target || config.create_in || "").toLowerCase();
+		if ((target === "daily" || !context.sourcePath) && !config.file) return this.ensureDailyNote();
+		const path = config.file?.trim() || context.sourcePath || this.getTodayDailyNotePath();
 		return this.ensureMarkdownFile(path);
 	}
 
@@ -554,14 +553,6 @@ export class CommandInputWidget extends MarkdownRenderChild {
 			...current.filter((item) => item.raw !== raw),
 		].slice(0, COMMAND_LIMIT);
 		await this.plugin.saveSettings();
-		this.renderHistory();
-	}
-
-	private setFeedback(message: string, status: CommandStatus): void {
-		if (!this.feedbackEl) return;
-		this.feedbackEl.empty();
-		this.feedbackEl.className = `umos-command-feedback is-${status}`;
-		this.feedbackEl.textContent = message;
 	}
 
 	private parseDateToken(value: string): string {
@@ -602,16 +593,5 @@ export class CommandInputWidget extends MarkdownRenderChild {
 	private timeToMinutes(value: string): number {
 		const [hours, minutes] = value.split(":").map(Number);
 		return hours * 60 + minutes;
-	}
-
-	private getCommandName(raw: string): string {
-		return raw.split(/\s+/)[0] || "command";
-	}
-
-	private isConfigEnabled(value: boolean | string | undefined, fallback: boolean): boolean {
-		if (value === undefined) return fallback;
-		if (typeof value === "boolean") return value;
-		const normalized = value.trim().toLowerCase();
-		return !["false", "0", "off", "no", "hide"].includes(normalized);
 	}
 }

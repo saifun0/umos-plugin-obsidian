@@ -1,5 +1,5 @@
 // — Obsidian —
-import { Plugin, Notice, TFile } from "obsidian";
+import { Plugin, Notice, TAbstractFile, TFile, addIcon } from "obsidian";
 
 // — Core —
 import { EventBus } from "./EventBus";
@@ -10,6 +10,7 @@ import { WidgetRegistry, createBaseWidgetDefinitions } from "./dashboard/WidgetR
 import { DashboardStudioModal } from "./dashboard/DashboardStudioModal";
 import { ApiRefreshModal } from "./dashboard/ApiRefreshModal";
 import { installGlobalDomLocalization, setLanguage, t, uninstallGlobalDomLocalization } from "./i18n";
+import { UMOS_ICON_ID, UMOS_LOGO_SVG, UMOS_SYNC_ICON_ID, UMOS_SYNC_ICON_SVG } from "./branding";
 
 // — Services —
 import { PrayerService } from "./religion/prayer/PrayerService";
@@ -25,8 +26,21 @@ import { WordsOfDayWidget } from "./stats/WordsOfDayWidget";
 import { ScheduleWidget } from "./productivity/schedule/ScheduleWidget";
 import { TasksWidget } from "./productivity/tasks/TasksWidget";
 import { TasksStatsWidget } from "./productivity/tasks/TasksStatsWidget";
+import { TasksCompletedWidget } from "./productivity/tasks/TasksCompletedWidget";
+import { TaskCalendarView, TASK_CALENDAR_VIEW_TYPE } from "./productivity/tasks/TaskCalendarView";
 import { TasksKanbanWidget } from "./productivity/tasks/TasksKanbanWidget";
+import { ProgressTableWidget } from "./productivity/progress/ProgressTableWidget";
 import { ContentGallery } from "./content/ContentGallery";
+import { ImageGalleryView, IMAGE_GALLERY_VIEW_TYPE } from "./content/ImageGalleryView";
+import { TriageCenterView, TRIAGE_CENTER_VIEW_TYPE } from "./triage/TriageCenterView";
+import { QuickCaptureModal } from "./capture/QuickCaptureModal";
+import type { QuickCaptureOptions } from "./capture/QuickCapturePanel";
+import { FocusSessionModal } from "./focus/FocusSessionModal";
+import { OmniSearchModal } from "./search/OmniSearchModal";
+import { VaultSyncService } from "./sync/VaultSyncService";
+import { SyncCenterModal } from "./sync/SyncCenterModal";
+import { SyncProgressNotice } from "./sync/SyncProgressNotice";
+import { GraphMapService } from "./graph/GraphMapService";
 import { ProjectGallery } from "./content/ProjectGallery";
 import { DailyNavWidget } from "./daily/DailyNavWidget";
 import { WordOfDayWidget } from "./daily/WordOfDay";
@@ -39,6 +53,7 @@ import { DailyNoteEnhancer } from "./daily/DailyNoteEnhancer";
 import { InputWidgetManager } from "./input/InputWidget";
 import { FrontmatterHelper } from "./input/FrontmatterHelper";
 import { FormatPickerModal } from "./formatting/FormatPickerModal";
+import { decorateCodeBlocks } from "./formatting/CodeBlockStyler";
 import { KanbanBoardWidget, KanbanBoardData } from "./productivity/kanban/KanbanBoardWidget";
 import { ColsWidget } from "./layout/ColsWidget";
 import { InfoboxWidget } from "./layout/InfoboxWidget";
@@ -62,13 +77,23 @@ export default class UmOSPlugin extends Plugin {
 	private gifOverlayEl: HTMLElement | null = null;
 	private dailyNoteEnhancer: DailyNoteEnhancer | null = null;
 	private weatherService: WeatherService | null = null;
+	public vaultSyncService!: VaultSyncService;
+	public graphMapService!: GraphMapService;
+	private vaultSyncStatusBarEl: HTMLElement | null = null;
+	private vaultSyncDebounceTimer: number | null = null;
+	private graphMapsDebounceTimer: number | null = null;
+	private graphMapsRunning = false;
 
 	async onload(): Promise<void> {
 		console.log("umOS: loading plugin...");
 		await this.loadSettings();
+		addIcon(UMOS_ICON_ID, UMOS_LOGO_SVG);
+		addIcon(UMOS_SYNC_ICON_ID, UMOS_SYNC_ICON_SVG);
 		setLanguage(this.settings.language);
 		installGlobalDomLocalization();
 		this.cleanupLegacySettingsStyles();
+		this.vaultSyncService = new VaultSyncService(this.app, this);
+		this.graphMapService = new GraphMapService(this.app, this);
 
 		this.sharedFmHelper = new FrontmatterHelper(this.app, this.eventBus);
 		this.buildWidgetRegistry();
@@ -139,7 +164,8 @@ export default class UmOSPlugin extends Plugin {
 						() => this.dailyNoteEnhancer ? this.dailyNoteEnhancer.createDailyNote() : Promise.resolve(),
 						(property, value) => this.setTodayPrayerCompletion(property, value),
 						this.weatherService,
-						() => this.saveSettings()
+						() => this.saveSettings(),
+						this
 					)
 				);
 			} else {
@@ -148,6 +174,51 @@ export default class UmOSPlugin extends Plugin {
 			}
 		} catch (error) {
 			console.error("umOS: failed to initialize Home View:", error);
+		}
+
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const viewRegistry = (this.app as any).viewRegistry;
+			const alreadyRegistered = viewRegistry?.views && TASK_CALENDAR_VIEW_TYPE in viewRegistry.views;
+			if (!alreadyRegistered) {
+				this.registerView(TASK_CALENDAR_VIEW_TYPE, (leaf) =>
+					new TaskCalendarView(leaf, this.app, this)
+				);
+			} else {
+				this.app.workspace.getLeavesOfType(TASK_CALENDAR_VIEW_TYPE).forEach(leaf => leaf.detach());
+			}
+		} catch (error) {
+			console.error("umOS: failed to initialize Task Calendar View:", error);
+		}
+
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const viewRegistry = (this.app as any).viewRegistry;
+			const alreadyRegistered = viewRegistry?.views && IMAGE_GALLERY_VIEW_TYPE in viewRegistry.views;
+			if (!alreadyRegistered) {
+				this.registerView(IMAGE_GALLERY_VIEW_TYPE, (leaf) =>
+					new ImageGalleryView(leaf, this.app, this)
+				);
+			} else {
+				this.app.workspace.getLeavesOfType(IMAGE_GALLERY_VIEW_TYPE).forEach(leaf => leaf.detach());
+			}
+		} catch (error) {
+			console.error("umOS: failed to initialize Image Gallery View:", error);
+		}
+
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const viewRegistry = (this.app as any).viewRegistry;
+			const alreadyRegistered = viewRegistry?.views && TRIAGE_CENTER_VIEW_TYPE in viewRegistry.views;
+			if (!alreadyRegistered) {
+				this.registerView(TRIAGE_CENTER_VIEW_TYPE, (leaf) =>
+					new TriageCenterView(leaf, this.app, this)
+				);
+			} else {
+				this.app.workspace.getLeavesOfType(TRIAGE_CENTER_VIEW_TYPE).forEach(leaf => leaf.detach());
+			}
+		} catch (error) {
+			console.error("umOS: failed to initialize Triage Center View:", error);
 		}
 
 		// Daily Note Enhancer
@@ -171,6 +242,9 @@ export default class UmOSPlugin extends Plugin {
 		// Widgets
 		try {
 			this.registerWidgets();
+			this.registerMarkdownPostProcessor((el) => {
+				decorateCodeBlocks(el);
+			});
 		} catch (error) {
 			console.error("umOS: failed to register widgets:", error);
 		}
@@ -182,6 +256,8 @@ export default class UmOSPlugin extends Plugin {
 		try {
 			this.registerCommands();
 			this.registerRibbonIcons();
+			this.initGraphMapsRuntime();
+			this.initVaultSyncRuntime();
 		} catch (error) {
 			console.error("umOS: failed to register commands:", error);
 		}
@@ -229,12 +305,138 @@ export default class UmOSPlugin extends Plugin {
 		if (this.inputWidgetManager) { this.inputWidgetManager.destroy(); this.inputWidgetManager = null; }
 		if (this.prayerStatusBar) { this.prayerStatusBar.destroy(); this.prayerStatusBar = null; }
 		if (this.sharedFmHelper) { this.sharedFmHelper.destroy(); this.sharedFmHelper = null; }
+		if (this.vaultSyncDebounceTimer) {
+			window.clearTimeout(this.vaultSyncDebounceTimer);
+			this.vaultSyncDebounceTimer = null;
+		}
+		if (this.graphMapsDebounceTimer) {
+			window.clearTimeout(this.graphMapsDebounceTimer);
+			this.graphMapsDebounceTimer = null;
+		}
 		this.weatherService = null;
 		this.prayerService = null;
 		this.statsEngine = null;
 		this.dailyNoteEnhancer = null;
 		this.app.workspace.detachLeavesOfType(HOME_VIEW_TYPE);
+		this.app.workspace.detachLeavesOfType(TASK_CALENDAR_VIEW_TYPE);
+		this.app.workspace.detachLeavesOfType(IMAGE_GALLERY_VIEW_TYPE);
+		this.app.workspace.detachLeavesOfType(TRIAGE_CENTER_VIEW_TYPE);
 		this.eventBus.offAll();
+	}
+
+	private initVaultSyncRuntime(): void {
+		this.vaultSyncStatusBarEl = this.addStatusBarItem();
+		this.updateVaultSyncStatusBar();
+
+		if (this.settings.syncOnStartup) {
+			this.app.workspace.onLayoutReady(() => {
+				void this.runVaultSync("bidirectional", false, "startup");
+			});
+		}
+
+		if ((this.settings.syncIntervalMinutes ?? 0) > 0) {
+			const intervalMs = Math.max(1, this.settings.syncIntervalMinutes) * 60_000;
+			this.registerInterval(window.setInterval(() => {
+				void this.runVaultSync(this.settings.syncMode, false, "interval");
+			}, intervalMs));
+		}
+
+		if ((this.settings.syncDebounceSeconds ?? 0) > 0) {
+			const schedule = () => this.scheduleDebouncedVaultSync();
+			this.registerEvent(this.app.vault.on("create", schedule));
+			this.registerEvent(this.app.vault.on("modify", schedule));
+			this.registerEvent(this.app.vault.on("delete", schedule));
+			this.registerEvent(this.app.vault.on("rename", schedule));
+		}
+	}
+
+	private initGraphMapsRuntime(): void {
+		if (!this.settings.graphMapsAutoUpdate) return;
+		this.app.workspace.onLayoutReady(() => {
+			this.scheduleGraphMapsUpdate();
+		});
+
+		const schedule = (file?: TAbstractFile) => {
+			if (file?.path && this.graphMapService.isManagedMapPath(file.path)) return;
+			this.scheduleGraphMapsUpdate();
+		};
+
+		this.registerEvent(this.app.vault.on("create", schedule));
+		this.registerEvent(this.app.vault.on("modify", schedule));
+		this.registerEvent(this.app.vault.on("delete", schedule));
+		this.registerEvent(this.app.vault.on("rename", schedule));
+		this.registerEvent(this.app.metadataCache.on("changed", schedule));
+	}
+
+	private scheduleGraphMapsUpdate(): void {
+		if (this.graphMapsRunning) return;
+		if (this.graphMapsDebounceTimer) window.clearTimeout(this.graphMapsDebounceTimer);
+		const delay = Math.max(1, this.settings.graphMapsDebounceSeconds || 5) * 1000;
+		this.graphMapsDebounceTimer = window.setTimeout(() => {
+			this.graphMapsDebounceTimer = null;
+			void this.rebuildGraphMaps(false);
+		}, delay);
+	}
+
+	public async rebuildGraphMaps(showNotice = true): Promise<void> {
+		if (this.graphMapsRunning) return;
+		this.graphMapsRunning = true;
+		try {
+			await this.graphMapService.rebuildMaps(showNotice);
+		} catch (error) {
+			console.error("umOS: failed to rebuild generated indexes:", error);
+			new Notice(error instanceof Error ? error.message : String(error));
+		} finally {
+			this.graphMapsRunning = false;
+		}
+	}
+
+	public updateVaultSyncStatusBar(): void {
+		if (!this.vaultSyncStatusBarEl) return;
+		const status = this.data_store.sync?.lastStatus ?? "idle";
+		const message = this.data_store.sync?.lastMessage || "Vault sync idle";
+		this.vaultSyncStatusBarEl.empty();
+		this.vaultSyncStatusBarEl.addClass("umos-vault-sync-status");
+		this.vaultSyncStatusBarEl.toggleClass("is-running", status === "running");
+		this.vaultSyncStatusBarEl.toggleClass("is-failed", status === "failed");
+		this.vaultSyncStatusBarEl.toggleClass("is-success", status === "success");
+		this.vaultSyncStatusBarEl.setText(status === "running" ? "sync..." : `sync: ${status}`);
+		this.vaultSyncStatusBarEl.title = message;
+	}
+
+	private scheduleDebouncedVaultSync(): void {
+		if (this.vaultSyncService?.isRunning()) return;
+		if (this.vaultSyncDebounceTimer) window.clearTimeout(this.vaultSyncDebounceTimer);
+		const delay = Math.max(1, this.settings.syncDebounceSeconds || 0) * 1000;
+		this.vaultSyncDebounceTimer = window.setTimeout(() => {
+			this.vaultSyncDebounceTimer = null;
+			void this.runVaultSync(this.settings.syncMode, false, "debounce");
+		}, delay);
+	}
+
+	private async runVaultSync(mode = this.settings.syncMode, dryRun = false, reason = "manual"): Promise<void> {
+		const progressNotice = new SyncProgressNotice(this);
+		try {
+			await this.vaultSyncService.run({
+				mode,
+				dryRun,
+				reason,
+				onProgress: (progress) => progressNotice.update(progress),
+			});
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			const cancelled = message.toLowerCase().includes("cancelled");
+			progressNotice.update({
+				status: cancelled ? "cancelled" : "failed",
+				phase: cancelled ? "Cancelled" : "Failed",
+				message,
+				current: cancelled ? 100 : 0,
+				total: 100,
+				percent: cancelled ? 100 : 0,
+				cancellable: false,
+			});
+		}
+		this.updateVaultSyncStatusBar();
 	}
 
 	private async activateHomeView(): Promise<void> {
@@ -251,6 +453,78 @@ export default class UmOSPlugin extends Plugin {
 			console.error("umOS: failed to open Home View:", error);
 			new Notice("❌ Could not open Home");
 		}
+	}
+
+	public async activateTaskCalendarView(): Promise<void> {
+		try {
+			const existing = this.app.workspace.getLeavesOfType(TASK_CALENDAR_VIEW_TYPE);
+			if (existing.length > 0) {
+				this.app.workspace.revealLeaf(existing[0]);
+				return;
+			}
+			const leaf = this.app.workspace.getLeaf("tab");
+			await leaf.setViewState({ type: TASK_CALENDAR_VIEW_TYPE, active: true });
+			this.app.workspace.revealLeaf(leaf);
+		} catch (error) {
+			console.error("umOS: failed to open Task Calendar View:", error);
+			new Notice("❌ Could not open Task Calendar");
+		}
+	}
+
+	public async activateImageGalleryView(): Promise<void> {
+		try {
+			const existing = this.app.workspace.getLeavesOfType(IMAGE_GALLERY_VIEW_TYPE);
+			if (existing.length > 0) {
+				this.app.workspace.revealLeaf(existing[0]);
+				return;
+			}
+			const leaf = this.app.workspace.getLeaf("tab");
+			await leaf.setViewState({ type: IMAGE_GALLERY_VIEW_TYPE, active: true });
+			this.app.workspace.revealLeaf(leaf);
+		} catch (error) {
+			console.error("umOS: failed to open Image Gallery View:", error);
+			new Notice("❌ Could not open Image Gallery");
+		}
+	}
+
+	public async activateTriageCenterView(): Promise<void> {
+		try {
+			const existing = this.app.workspace.getLeavesOfType(TRIAGE_CENTER_VIEW_TYPE);
+			if (existing.length > 0) {
+				this.app.workspace.revealLeaf(existing[0]);
+				return;
+			}
+			const leaf = this.app.workspace.getLeaf("tab");
+			await leaf.setViewState({ type: TRIAGE_CENTER_VIEW_TYPE, active: true });
+			this.app.workspace.revealLeaf(leaf);
+		} catch (error) {
+			console.error("umOS: failed to open Triage Center View:", error);
+			new Notice("❌ Could not open Triage Center");
+		}
+	}
+
+	public openQuickCaptureModal(options?: QuickCaptureOptions): void {
+		new QuickCaptureModal(this.app, this, options).open();
+	}
+
+	public openFocusSessionModal(): void {
+		new FocusSessionModal(this.app, this).open();
+	}
+
+	public openSyncCenterModal(): void {
+		new SyncCenterModal(this).open();
+	}
+
+	public openOmniSearchModal(): void {
+		new OmniSearchModal(this.app, this).open();
+	}
+
+	public async ensureDailyNoteFile(
+		dateISO?: string,
+		options: { open?: boolean; notify?: boolean } = {},
+	): Promise<TFile | null> {
+		if (!this.dailyNoteEnhancer) return null;
+		return this.dailyNoteEnhancer.ensureDailyNote(dateISO, options);
 	}
 
 	private async ensureTodayDailyNoteIfEnabled(): Promise<void> {
@@ -392,6 +666,12 @@ export default class UmOSPlugin extends Plugin {
 						ctx.addChild(new TasksStatsWidget(container, config, this.app, this));
 					};
 					break;
+				case "tasks-completed-widget":
+					def.factory = ({ el, ctx, config }) => {
+						const container = el.createDiv({ cls: "umos-widget-container" });
+						ctx.addChild(new TasksCompletedWidget(container, config, this.app, this));
+					};
+					break;
 				case "tasks-widget":
 					def.factory = ({ el, ctx, config }) => {
 						const container = el.createDiv({ cls: "umos-widget-container" });
@@ -402,6 +682,12 @@ export default class UmOSPlugin extends Plugin {
 					def.factory = ({ el, ctx, config }) => {
 						const container = el.createDiv({ cls: "umos-widget-container" });
 						ctx.addChild(new TasksKanbanWidget(container, config, this.app, this, ctx.sourcePath));
+					};
+					break;
+				case "progress-table":
+					def.factory = ({ source, el, ctx }) => {
+						const container = el.createDiv({ cls: "umos-widget-container" });
+						ctx.addChild(new ProgressTableWidget(container, source, ctx.sourcePath, this, this.eventBus, ctx, el));
 					};
 					break;
 				case "daily-nav":
@@ -564,7 +850,17 @@ export default class UmOSPlugin extends Plugin {
 
 	private migrateSettings(): void {
 		let dirty = false;
-		const removedSections = new Set(["pomodoro", "goals", "finance", "balance", "ramadan", "exams"]);
+		const removedSections = new Set([
+			"pomodoro",
+			"goals",
+			"finance",
+			"balance",
+			"ramadan",
+			"exams",
+			"alerts",
+			"quick-capture",
+			"vault-health",
+		]);
 		const filteredSections = this.settings.homeVisibleSections.filter((section) => !removedSections.has(section));
 		if (filteredSections.length !== this.settings.homeVisibleSections.length) {
 			this.settings.homeVisibleSections = filteredSections;
@@ -715,7 +1011,90 @@ export default class UmOSPlugin extends Plugin {
 		this.addCommand({
 			id: "umos:open-home",
 			name: "Open Home",
+			icon: UMOS_ICON_ID,
 			callback: () => { this.activateHomeView(); },
+		});
+
+		this.addCommand({
+			id: "umos:task-calendar",
+			name: "Task Calendar",
+			callback: () => { this.activateTaskCalendarView(); },
+		});
+
+		this.addCommand({
+			id: "umos:image-gallery",
+			name: "Image Gallery",
+			callback: () => { this.activateImageGalleryView(); },
+		});
+
+		this.addCommand({
+			id: "umos:triage-center",
+			name: "Inbox / Triage Center",
+			callback: () => { this.activateTriageCenterView(); },
+		});
+
+		this.addCommand({
+			id: "umos:omni-search",
+			name: "Better Search",
+			callback: () => { this.openOmniSearchModal(); },
+		});
+
+		this.addCommand({
+			id: "umos:quick-capture",
+			name: "Quick Capture",
+			callback: () => { this.openQuickCaptureModal(); },
+		});
+
+		this.addCommand({
+			id: "umos:focus-session",
+			name: "Focus Session",
+			callback: () => { this.openFocusSessionModal(); },
+		});
+
+		this.addCommand({
+			id: "umos:sync-center",
+			name: "Sync Center",
+			callback: () => { this.openSyncCenterModal(); },
+		});
+
+		this.addCommand({
+			id: "umos:vault-sync",
+			name: "Vault Sync",
+			callback: () => { void this.runVaultSync(this.settings.syncMode, false, "command"); },
+		});
+
+		this.addCommand({
+			id: "umos:vault-sync-dry-run",
+			name: "Vault Sync Dry Run",
+			callback: () => { void this.runVaultSync(this.settings.syncMode, true, "command"); },
+		});
+
+		this.addCommand({
+			id: "umos:vault-sync-pull",
+			name: "Vault Sync Pull",
+			callback: () => { void this.runVaultSync("pull", false, "command"); },
+		});
+
+		this.addCommand({
+			id: "umos:vault-sync-push",
+			name: "Vault Sync Push",
+			callback: () => { void this.runVaultSync("push", false, "command"); },
+		});
+
+		this.addCommand({
+			id: "umos:rebuild-graph-maps",
+			name: "Rebuild Graph Maps and Indexes",
+			callback: () => { void this.rebuildGraphMaps(true); },
+		});
+
+		this.addCommand({
+			id: "umos:simplify-graph-frontmatter",
+			name: "Simplify Graph Frontmatter",
+			callback: async () => {
+				const result = await this.graphMapService.simplifyGraphMetadata(true);
+				await this.rebuildGraphMaps(false);
+				console.log("umOS: simplified graph frontmatter", result);
+			},
 		});
 
 
@@ -888,7 +1267,14 @@ export default class UmOSPlugin extends Plugin {
 
 	// ─── Ribbon ──────────────────────────
 	private registerRibbonIcons(): void {
-		this.addRibbonIcon("home", "umOS: Open Home", () => { this.activateHomeView(); });
+		this.addRibbonIcon(UMOS_ICON_ID, "umOS: Open Home", () => { this.activateHomeView(); });
+		this.addRibbonIcon("calendar-check", "umOS: Task Calendar", () => { this.activateTaskCalendarView(); });
+		this.addRibbonIcon("images", "umOS: Image Gallery", () => { this.activateImageGalleryView(); });
+		this.addRibbonIcon("inbox", "umOS: Inbox / Triage Center", () => { this.activateTriageCenterView(); });
+		this.addRibbonIcon("search", "umOS: Better Search", () => { this.openOmniSearchModal(); });
+		this.addRibbonIcon("wand-sparkles", "umOS: Quick Capture", () => { this.openQuickCaptureModal(); });
+		this.addRibbonIcon("timer", "umOS: Focus Session", () => { this.openFocusSessionModal(); });
+		this.addRibbonIcon(UMOS_SYNC_ICON_ID, "umOS: Sync Center", () => { this.openSyncCenterModal(); });
 		this.addRibbonIcon("calendar", "umOS: Daily Note", async () => {
 			if (this.dailyNoteEnhancer) {
 				await this.dailyNoteEnhancer.createDailyNote();

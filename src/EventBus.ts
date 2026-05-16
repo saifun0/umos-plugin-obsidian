@@ -22,6 +22,8 @@ export interface UmOSEventMap {
 	"widget:config-invalid": [data: { blockName: string; sourcePath?: string; errors: string[]; warnings: string[] }];
 	"command:executed": [data: { command: string; target?: string }];
 	"command:failed": [data: { command: string; reason: string }];
+	"progress-table:changed": [data: { id: string }];
+	"focus-session:changed": [data: { action: "started" | "paused" | "resumed" | "completed" | "cancelled" }];
 	"weather:updated": [];
 	"location:updated": [];
 	"settings:changed": [];
