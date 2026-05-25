@@ -7,10 +7,12 @@ import { UmOSSettings, UmOSData, DEFAULT_SETTINGS, DEFAULT_DATA } from "./settin
 import { UmOSSettingsTab } from "./settings/SettingsTab";
 import { createErrorMessage, createElement } from "./utils/dom";
 import { WidgetRegistry, createBaseWidgetDefinitions } from "./dashboard/WidgetRegistry";
+import { DynamicFrontmatterService } from "./metadata/DynamicFrontmatterService";
 import { DashboardStudioModal } from "./dashboard/DashboardStudioModal";
 import { ApiRefreshModal } from "./dashboard/ApiRefreshModal";
 import { installGlobalDomLocalization, setLanguage, t, uninstallGlobalDomLocalization } from "./i18n";
 import { UMOS_ICON_ID, UMOS_LOGO_SVG, UMOS_SYNC_ICON_ID, UMOS_SYNC_ICON_SVG } from "./branding";
+import { WelcomeModal } from "./WelcomeModal";
 
 // — Services —
 import { PrayerService } from "./religion/prayer/PrayerService";
@@ -32,15 +34,10 @@ import { TasksKanbanWidget } from "./productivity/tasks/TasksKanbanWidget";
 import { ProgressTableWidget } from "./productivity/progress/ProgressTableWidget";
 import { ContentGallery } from "./content/ContentGallery";
 import { ImageGalleryView, IMAGE_GALLERY_VIEW_TYPE } from "./content/ImageGalleryView";
-import { TriageCenterView, TRIAGE_CENTER_VIEW_TYPE } from "./triage/TriageCenterView";
-import { QuickCaptureModal } from "./capture/QuickCaptureModal";
-import type { QuickCaptureOptions } from "./capture/QuickCapturePanel";
-import { FocusSessionModal } from "./focus/FocusSessionModal";
 import { OmniSearchModal } from "./search/OmniSearchModal";
 import { VaultSyncService } from "./sync/VaultSyncService";
 import { SyncCenterModal } from "./sync/SyncCenterModal";
 import { SyncProgressNotice } from "./sync/SyncProgressNotice";
-import { GraphMapService } from "./graph/GraphMapService";
 import { ProjectGallery } from "./content/ProjectGallery";
 import { DailyNavWidget } from "./daily/DailyNavWidget";
 import { WordOfDayWidget } from "./daily/WordOfDay";
@@ -53,12 +50,14 @@ import { DailyNoteEnhancer } from "./daily/DailyNoteEnhancer";
 import { InputWidgetManager } from "./input/InputWidget";
 import { FrontmatterHelper } from "./input/FrontmatterHelper";
 import { FormatPickerModal } from "./formatting/FormatPickerModal";
+import { SlashCommandSuggest } from "./formatting/SlashCommandSuggest";
 import { decorateCodeBlocks } from "./formatting/CodeBlockStyler";
 import { KanbanBoardWidget, KanbanBoardData } from "./productivity/kanban/KanbanBoardWidget";
 import { ColsWidget } from "./layout/ColsWidget";
 import { InfoboxWidget } from "./layout/InfoboxWidget";
 import { CountdownRingsWidget } from "./time/CountdownRingsWidget";
 import { DebugWidget } from "./dashboard/DebugWidget";
+import { LauncherModal } from "./layout/LauncherModal";
 
 const PRAYER_FRONTMATTER_KEYS = new Set(["fajr", "dhuhr", "asr", "maghrib", "isha"]);
 
@@ -76,13 +75,11 @@ export default class UmOSPlugin extends Plugin {
 	private statusBarItemEl: HTMLElement | null = null;
 	private gifOverlayEl: HTMLElement | null = null;
 	private dailyNoteEnhancer: DailyNoteEnhancer | null = null;
+	public dynamicFrontmatterService: DynamicFrontmatterService | null = null;
 	private weatherService: WeatherService | null = null;
 	public vaultSyncService!: VaultSyncService;
-	public graphMapService!: GraphMapService;
 	private vaultSyncStatusBarEl: HTMLElement | null = null;
 	private vaultSyncDebounceTimer: number | null = null;
-	private graphMapsDebounceTimer: number | null = null;
-	private graphMapsRunning = false;
 
 	async onload(): Promise<void> {
 		console.log("umOS: loading plugin...");
@@ -93,7 +90,7 @@ export default class UmOSPlugin extends Plugin {
 		installGlobalDomLocalization();
 		this.cleanupLegacySettingsStyles();
 		this.vaultSyncService = new VaultSyncService(this.app, this);
-		this.graphMapService = new GraphMapService(this.app, this);
+		this.dynamicFrontmatterService = new DynamicFrontmatterService(this.app, this);
 
 		this.sharedFmHelper = new FrontmatterHelper(this.app, this.eventBus);
 		this.buildWidgetRegistry();
@@ -103,6 +100,10 @@ export default class UmOSPlugin extends Plugin {
 		try {
 			this.inputWidgetManager = new InputWidgetManager(this);
 			this.inputWidgetManager.register();
+			
+			const slashSuggest = new SlashCommandSuggest(this.app);
+			slashSuggest.setBoardIds(Object.keys(this.data_store.kanbanBoards || {}));
+			this.registerEditorSuggest(slashSuggest);
 		} catch (error) {
 			console.error("umOS: failed to initialize InputWidgetManager:", error);
 		}
@@ -206,20 +207,6 @@ export default class UmOSPlugin extends Plugin {
 			console.error("umOS: failed to initialize Image Gallery View:", error);
 		}
 
-		try {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const viewRegistry = (this.app as any).viewRegistry;
-			const alreadyRegistered = viewRegistry?.views && TRIAGE_CENTER_VIEW_TYPE in viewRegistry.views;
-			if (!alreadyRegistered) {
-				this.registerView(TRIAGE_CENTER_VIEW_TYPE, (leaf) =>
-					new TriageCenterView(leaf, this.app, this)
-				);
-			} else {
-				this.app.workspace.getLeavesOfType(TRIAGE_CENTER_VIEW_TYPE).forEach(leaf => leaf.detach());
-			}
-		} catch (error) {
-			console.error("umOS: failed to initialize Triage Center View:", error);
-		}
 
 		// Daily Note Enhancer
 		try {
@@ -256,11 +243,16 @@ export default class UmOSPlugin extends Plugin {
 		try {
 			this.registerCommands();
 			this.registerRibbonIcons();
-			this.initGraphMapsRuntime();
+			this.updateVaultSyncStatusBar();
 			this.initVaultSyncRuntime();
 		} catch (error) {
 			console.error("umOS: failed to register commands:", error);
 		}
+		
+		// Dynamic Frontmatter
+		this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
+			void this.dynamicFrontmatterService?.handleRename(file, oldPath);
+		}));
 
 		// GIF panel — embedded in file-explorer sidebar
 		this.initGifOverlay();
@@ -292,6 +284,13 @@ export default class UmOSPlugin extends Plugin {
 		});
 
 
+		// Welcome screen — first run only
+		if (!this.settings.hasSeenWelcome) {
+			new WelcomeModal(this.app, this).open();
+			this.settings.hasSeenWelcome = true;
+			void this.saveSettings();
+		}
+
 		console.log("umOS: plugin loaded.");
 	}
 
@@ -309,18 +308,13 @@ export default class UmOSPlugin extends Plugin {
 			window.clearTimeout(this.vaultSyncDebounceTimer);
 			this.vaultSyncDebounceTimer = null;
 		}
-		if (this.graphMapsDebounceTimer) {
-			window.clearTimeout(this.graphMapsDebounceTimer);
-			this.graphMapsDebounceTimer = null;
-		}
-		this.weatherService = null;
 		this.prayerService = null;
 		this.statsEngine = null;
 		this.dailyNoteEnhancer = null;
 		this.app.workspace.detachLeavesOfType(HOME_VIEW_TYPE);
 		this.app.workspace.detachLeavesOfType(TASK_CALENDAR_VIEW_TYPE);
 		this.app.workspace.detachLeavesOfType(IMAGE_GALLERY_VIEW_TYPE);
-		this.app.workspace.detachLeavesOfType(TRIAGE_CENTER_VIEW_TYPE);
+
 		this.eventBus.offAll();
 	}
 
@@ -347,47 +341,6 @@ export default class UmOSPlugin extends Plugin {
 			this.registerEvent(this.app.vault.on("modify", schedule));
 			this.registerEvent(this.app.vault.on("delete", schedule));
 			this.registerEvent(this.app.vault.on("rename", schedule));
-		}
-	}
-
-	private initGraphMapsRuntime(): void {
-		if (!this.settings.graphMapsAutoUpdate) return;
-		this.app.workspace.onLayoutReady(() => {
-			this.scheduleGraphMapsUpdate();
-		});
-
-		const schedule = (file?: TAbstractFile) => {
-			if (file?.path && this.graphMapService.isManagedMapPath(file.path)) return;
-			this.scheduleGraphMapsUpdate();
-		};
-
-		this.registerEvent(this.app.vault.on("create", schedule));
-		this.registerEvent(this.app.vault.on("modify", schedule));
-		this.registerEvent(this.app.vault.on("delete", schedule));
-		this.registerEvent(this.app.vault.on("rename", schedule));
-		this.registerEvent(this.app.metadataCache.on("changed", schedule));
-	}
-
-	private scheduleGraphMapsUpdate(): void {
-		if (this.graphMapsRunning) return;
-		if (this.graphMapsDebounceTimer) window.clearTimeout(this.graphMapsDebounceTimer);
-		const delay = Math.max(1, this.settings.graphMapsDebounceSeconds || 5) * 1000;
-		this.graphMapsDebounceTimer = window.setTimeout(() => {
-			this.graphMapsDebounceTimer = null;
-			void this.rebuildGraphMaps(false);
-		}, delay);
-	}
-
-	public async rebuildGraphMaps(showNotice = true): Promise<void> {
-		if (this.graphMapsRunning) return;
-		this.graphMapsRunning = true;
-		try {
-			await this.graphMapService.rebuildMaps(showNotice);
-		} catch (error) {
-			console.error("umOS: failed to rebuild generated indexes:", error);
-			new Notice(error instanceof Error ? error.message : String(error));
-		} finally {
-			this.graphMapsRunning = false;
 		}
 	}
 
@@ -439,7 +392,7 @@ export default class UmOSPlugin extends Plugin {
 		this.updateVaultSyncStatusBar();
 	}
 
-	private async activateHomeView(): Promise<void> {
+	public async activateHomeView(): Promise<void> {
 		try {
 			const existing = this.app.workspace.getLeavesOfType(HOME_VIEW_TYPE);
 			if (existing.length > 0) {
@@ -485,30 +438,6 @@ export default class UmOSPlugin extends Plugin {
 			console.error("umOS: failed to open Image Gallery View:", error);
 			new Notice("❌ Could not open Image Gallery");
 		}
-	}
-
-	public async activateTriageCenterView(): Promise<void> {
-		try {
-			const existing = this.app.workspace.getLeavesOfType(TRIAGE_CENTER_VIEW_TYPE);
-			if (existing.length > 0) {
-				this.app.workspace.revealLeaf(existing[0]);
-				return;
-			}
-			const leaf = this.app.workspace.getLeaf("tab");
-			await leaf.setViewState({ type: TRIAGE_CENTER_VIEW_TYPE, active: true });
-			this.app.workspace.revealLeaf(leaf);
-		} catch (error) {
-			console.error("umOS: failed to open Triage Center View:", error);
-			new Notice("❌ Could not open Triage Center");
-		}
-	}
-
-	public openQuickCaptureModal(options?: QuickCaptureOptions): void {
-		new QuickCaptureModal(this.app, this, options).open();
-	}
-
-	public openFocusSessionModal(): void {
-		new FocusSessionModal(this.app, this).open();
 	}
 
 	public openSyncCenterModal(): void {
@@ -844,7 +773,6 @@ export default class UmOSPlugin extends Plugin {
 			this.data_store = { ...DEFAULT_DATA };
 		}
 
-		await this.tryLoadFromVaultSync();
 		this.migrateSettings();
 	}
 
@@ -928,60 +856,17 @@ export default class UmOSPlugin extends Plugin {
 		if (dirty) void this.saveSettings();
 	}
 
-	private async tryLoadFromVaultSync(): Promise<void> {
-		const syncPath = this.settings.syncDataPath?.trim();
-		if (!syncPath) return;
-		try {
-			const exists = await this.app.vault.adapter.exists(syncPath);
-			if (!exists) return;
-			const raw = await this.app.vault.adapter.read(syncPath);
-			const vaultData = JSON.parse(raw) as Record<string, unknown>;
-			const vaultTime = (vaultData.syncedAt as number | undefined) || 0;
-			const localTime = this.data_store.syncedAt || 0;
-			if (vaultTime > localTime) {
-				console.log(`umOS: vault sync is newer (${vaultTime} > ${localTime}), loading from ${syncPath}`);
-				const vaultSettings = vaultData.settings as Partial<UmOSSettings> | undefined;
-				this.settings = { ...DEFAULT_SETTINGS, ...vaultSettings };
-				if (vaultSettings && !("language" in vaultSettings)) {
-					this.settings.language = "ru";
-				}
-				const merged = this.deepMerge(DEFAULT_DATA as unknown as Record<string, unknown>, vaultData);
-				this.data_store = merged as unknown as UmOSData;
-				this.data_store.settings = this.settings;
-				await this.saveData(this.data_store);
-			}
-		} catch (error) {
-			console.warn("umOS: failed to read vault sync file, using local data:", error);
-		}
-	}
-
 	async saveSettings(): Promise<void> {
 		try {
 			this.data_store.settings = this.settings;
 			this.data_store.syncedAt = Date.now();
 			await this.saveData(this.data_store);
-			await this.writeSyncFile();
 			this.eventBus.emit("settings:changed");
 		} catch (error) {
 			console.error("umOS: failed to save settings:", error);
 			new Notice("❌ Could not save settings");
 		}
 	}
-
-	private async writeSyncFile(): Promise<void> {
-		const syncPath = this.settings.syncDataPath?.trim();
-		if (!syncPath) return;
-		try {
-			const dir = syncPath.includes("/") ? syncPath.substring(0, syncPath.lastIndexOf("/")) : "";
-			if (dir && !await this.app.vault.adapter.exists(dir)) {
-				await this.app.vault.createFolder(dir);
-			}
-			await this.app.vault.adapter.write(syncPath, JSON.stringify(this.data_store, null, 2));
-		} catch (error) {
-			console.error("umOS: failed to write vault sync file:", error);
-		}
-	}
-
 	private deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
 		const output: Record<string, unknown> = { ...target };
 		for (const key of Object.keys(source)) {
@@ -1027,11 +912,6 @@ export default class UmOSPlugin extends Plugin {
 			callback: () => { this.activateImageGalleryView(); },
 		});
 
-		this.addCommand({
-			id: "umos:triage-center",
-			name: "Inbox / Triage Center",
-			callback: () => { this.activateTriageCenterView(); },
-		});
 
 		this.addCommand({
 			id: "umos:omni-search",
@@ -1039,17 +919,6 @@ export default class UmOSPlugin extends Plugin {
 			callback: () => { this.openOmniSearchModal(); },
 		});
 
-		this.addCommand({
-			id: "umos:quick-capture",
-			name: "Quick Capture",
-			callback: () => { this.openQuickCaptureModal(); },
-		});
-
-		this.addCommand({
-			id: "umos:focus-session",
-			name: "Focus Session",
-			callback: () => { this.openFocusSessionModal(); },
-		});
 
 		this.addCommand({
 			id: "umos:sync-center",
@@ -1082,21 +951,12 @@ export default class UmOSPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: "umos:rebuild-graph-maps",
-			name: "Rebuild Graph Maps and Indexes",
-			callback: () => { void this.rebuildGraphMaps(true); },
-		});
-
-		this.addCommand({
-			id: "umos:simplify-graph-frontmatter",
-			name: "Simplify Graph Frontmatter",
-			callback: async () => {
-				const result = await this.graphMapService.simplifyGraphMetadata(true);
-				await this.rebuildGraphMaps(false);
-				console.log("umOS: simplified graph frontmatter", result);
+			id: "umos-sync-frontmatter",
+			name: "Sync Frontmatter with Folders",
+			callback: () => {
+				void this.dynamicFrontmatterService?.syncAllFiles(true);
 			},
 		});
-
 
 		this.addCommand({
 			id: "umos:create-daily",
@@ -1267,20 +1127,8 @@ export default class UmOSPlugin extends Plugin {
 
 	// ─── Ribbon ──────────────────────────
 	private registerRibbonIcons(): void {
-		this.addRibbonIcon(UMOS_ICON_ID, "umOS: Open Home", () => { this.activateHomeView(); });
-		this.addRibbonIcon("calendar-check", "umOS: Task Calendar", () => { this.activateTaskCalendarView(); });
-		this.addRibbonIcon("images", "umOS: Image Gallery", () => { this.activateImageGalleryView(); });
-		this.addRibbonIcon("inbox", "umOS: Inbox / Triage Center", () => { this.activateTriageCenterView(); });
-		this.addRibbonIcon("search", "umOS: Better Search", () => { this.openOmniSearchModal(); });
-		this.addRibbonIcon("wand-sparkles", "umOS: Quick Capture", () => { this.openQuickCaptureModal(); });
-		this.addRibbonIcon("timer", "umOS: Focus Session", () => { this.openFocusSessionModal(); });
-		this.addRibbonIcon(UMOS_SYNC_ICON_ID, "umOS: Sync Center", () => { this.openSyncCenterModal(); });
-		this.addRibbonIcon("calendar", "umOS: Daily Note", async () => {
-			if (this.dailyNoteEnhancer) {
-				await this.dailyNoteEnhancer.createDailyNote();
-			} else {
-				new Notice("❌ DailyNoteEnhancer is not initialized");
-			}
+		this.addRibbonIcon(UMOS_ICON_ID, "umOS Menu", () => {
+			new LauncherModal(this.app, this).open();
 		});
 	}
 }

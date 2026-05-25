@@ -9,6 +9,7 @@ import {
 	WEEKDAY_LABELS_RU,
 	SLOT_TYPE_ICONS,
 } from "../../productivity/schedule/ScheduleData";
+import { t } from "../../i18n";
 
 const HOME_SCHEDULE_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const DEFAULT_COMPLETED_DAY_ADVANCE_DELAY_MINUTES = 60;
@@ -110,7 +111,7 @@ export function renderScheduleMini(parent: HTMLElement, ctx: HomeViewContext): v
 	const slotInfo = target.isToday
 		? getCurrentSlotInfo(slots)
 		: { currentSlot: null, nextSlot: filled[0] ?? null };
-	const weekLabel = target.weekKey === "week1" ? "week 1" : "week 2";
+	const weekLabel = target.weekKey === "week1" ? "Week 1" : "Week 2";
 	const visibleSlots = data.settings.homeScheduleShowPastLessons === false
 		? filled.filter((slot) => !isScheduleMiniSlotPast(slot, target, now))
 		: filled;
@@ -120,12 +121,12 @@ export function renderScheduleMini(parent: HTMLElement, ctx: HomeViewContext): v
 	const titleRow = createElement("div", { cls: "umos-home-schedule-mini-header", parent: wrap });
 	createElement("span", {
 		cls: "umos-home-section-title",
-		text: `📅 Schedule — ${WEEKDAY_LABELS_RU[target.dayKey] || target.dayKey}`,
+		text: `📅 ${t("Schedule").toUpperCase()} — ${t(WEEKDAY_LABELS_RU[target.dayKey] || target.dayKey).toUpperCase()}`,
 		parent: titleRow,
 	});
 	createElement("span", {
 		cls: "umos-home-schedule-mini-count",
-		text: `${weekLabel} · ${formatLessonCount(filled.length)}`,
+		text: `${t(weekLabel).toLowerCase()} · ${t(formatLessonCount(filled.length))}`,
 		parent: titleRow,
 	});
 
@@ -133,7 +134,7 @@ export function renderScheduleMini(parent: HTMLElement, ctx: HomeViewContext): v
 	if (visibleSlots.length === 0) {
 		createElement("div", {
 			cls: "umos-home-empty",
-			text: "All classes for today are done ✅",
+			text: t("All classes for today are done ✅"),
 			parent: list,
 		});
 		return;
@@ -222,7 +223,7 @@ function renderScheduleMiniSlot(
 
 	createElement("span", {
 		cls: `umos-home-schedule-slot-badge ${timing.badgeClassName}`,
-		text: timing.badge,
+		text: t(timing.badge),
 		parent: slotCard,
 	});
 
@@ -243,7 +244,7 @@ function renderScheduleMiniSlot(
 	if (timing.text) {
 		createElement("span", {
 			cls: "umos-home-schedule-slot-countdown",
-			text: timing.text,
+			text: t(timing.text),
 			parent: slotCard,
 		});
 	}

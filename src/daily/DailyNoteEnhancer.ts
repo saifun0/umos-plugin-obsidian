@@ -277,7 +277,7 @@ export class DailyNoteEnhancer {
 			`icons: ${this.arr(habits.map(habit => habit.icon))}`,
 			`mins: [${habits.map(() => 0).join(", ")}]`,
 			`maxes: [${habits.map(() => 999).join(", ")}]`,
-			`steps: [${habits.map(() => 1).join(", ")}]`,
+			`steps: [${habits.map(() => 5).join(", ")}]`,
 			`columns: ${habits.length}`,
 			"```",
 			"",

@@ -89,6 +89,12 @@ export class TasksCompletedWidget extends BaseWidget {
         const body = details.createDiv({ cls: 'umos-tasks-completed-body' });
 
         const tasks = this.getRangeTasks(buckets, this.activeRange);
+        tasks.sort((a, b) => {
+            const dateA = a.doneDate || a.dueDate || '';
+            const dateB = b.doneDate || b.dueDate || '';
+            if (dateA !== dateB) return dateB.localeCompare(dateA);
+            return b.lineNumber - a.lineNumber;
+        });
         if (tasks.length === 0) {
             body.createDiv({ cls: 'umos-tasks-completed-empty', text: t('No completed tasks in this range') });
             return;
@@ -96,7 +102,15 @@ export class TasksCompletedWidget extends BaseWidget {
 
         const list = body.createDiv({ cls: 'umos-tasks-completed-list' });
         const limit = this.getLimit();
+        
+        let currentDateStr = '';
+        
         for (const task of tasks.slice(0, limit)) {
+            const dateStr = task.doneDate || task.dueDate || t('No date');
+            if (dateStr !== currentDateStr) {
+                list.createDiv({ cls: 'umos-tasks-completed-date-header', text: this.formatDateHeader(dateStr) });
+                currentDateStr = dateStr;
+            }
             this.renderTask(list, task);
         }
 
@@ -141,6 +155,21 @@ export class TasksCompletedWidget extends BaseWidget {
             const view = this.app.workspace.getActiveViewOfType(MarkdownView);
             if (view) view.editor.setCursor(task.lineNumber, 0);
         });
+    }
+
+    private formatDateHeader(dateStr: string): string {
+        if (!dateStr || dateStr === t('No date')) return t('No date');
+        const m = moment(dateStr, 'YYYY-MM-DD');
+        if (!m.isValid()) return dateStr;
+        
+        const today = moment().startOf('day');
+        const diff = m.diff(today, 'days');
+        
+        if (diff === 0) return t('Today');
+        if (diff === -1) return t('Yesterday');
+        if (diff === 1) return t('Tomorrow');
+        
+        return m.format('D MMMM YYYY');
     }
 
     private renderCountPill(parent: HTMLElement, label: string, count: number, key: CompletedRangeKey): void {

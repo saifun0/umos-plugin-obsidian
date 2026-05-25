@@ -40,7 +40,6 @@ export class TaskNoteService {
     public async createOrOpenTaskNote(task: Task): Promise<TFile | null> {
         const existing = await this.findTaskNote(task);
         if (existing) {
-            this.ensureTaskLinksNote(task, existing);
             await this.openFile(existing);
             return existing;
         }
@@ -49,7 +48,6 @@ export class TaskNoteService {
         await this.ensureFolder(inboxFolder);
         const filePath = this.getUniquePath(inboxFolder, `${moment().format('YYYY-MM-DD')} ${slugify(task.description)}.md`);
         const file = await this.app.vault.create(filePath, this.buildTaskNoteContent(task, filePath));
-        this.ensureTaskLinksNote(task, file);
         await this.openFile(file);
         new Notice(t('Task note created'));
         return file;
@@ -162,16 +160,7 @@ export class TaskNoteService {
         return links;
     }
 
-    private ensureTaskLinksNote(task: Task, file: TFile): void {
-        const target = normalizeTaskNoteLink(file.path);
-        const hasLink = this.extractWikiLinks(task.description).some((link) => {
-            const resolved = this.app.metadataCache.getFirstLinkpathDest(link, task.filePath);
-            return resolved instanceof TFile && resolved.path === file.path;
-        });
-        if (hasLink) return;
 
-        task.description = `${task.description.trim()} [[${target}|${t('task note')}]]`.trim();
-    }
 
     private async openFile(file: TFile): Promise<void> {
         const leaf = this.app.workspace.getLeaf('tab');
@@ -180,7 +169,7 @@ export class TaskNoteService {
     }
 
     private getInboxTaskNotesFolder(): string {
-        const root = cleanFolderPath(this.plugin?.settings.homeQuickCaptureDefaultNoteFolder || '10 Inbox');
+        const root = cleanFolderPath(this.plugin?.settings.inboxFolder || '10 Inbox');
         return `${root}/Task Notes`;
     }
 

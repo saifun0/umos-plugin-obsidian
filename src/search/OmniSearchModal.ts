@@ -1,4 +1,4 @@
-import { App, MarkdownView, Modal, Notice, TFile, setIcon } from "obsidian";
+import { App, MarkdownView, Modal, Notice, TFile, setIcon, Platform } from "obsidian";
 import type UmOSPlugin from "../main";
 import { t } from "../i18n";
 import { createElement } from "../utils/dom";
@@ -44,7 +44,12 @@ export class OmniSearchModal extends Modal {
 	private inputIconEl: HTMLElement | null = null;
 	private filtersEl: HTMLElement | null = null;
 	private resultsEl: HTMLElement | null = null;
-	private statusEl: HTMLElement | null = null;
+	private legendEl: HTMLElement | null = null;
+	private shellEl: HTMLElement | null = null;
+
+	// Session history
+	private static queryHistory: string[] = [];
+	private historyIndex = -1;
 
 	constructor(
 		app: App,
@@ -98,11 +103,42 @@ export class OmniSearchModal extends Modal {
 
 		this.filtersEl = createElement("div", { cls: "umos-omni-filters", parent: shell });
 		this.resultsEl = createElement("div", { cls: "umos-omni-results", parent: shell });
-		this.statusEl = createElement("div", { cls: "umos-omni-status", text: t("Building search index..."), parent: shell });
+		this.legendEl = createElement("div", { cls: "umos-omni-legend", parent: shell });
+		this.shellEl = shell;
 
-		this.inputEl.addEventListener("input", () => this.refreshResults());
+		this.renderLegend();
+
+		this.inputEl.addEventListener("input", () => {
+			this.historyIndex = -1;
+			this.refreshResults();
+		});
 		this.inputEl.addEventListener("keydown", (event) => this.handleKeydown(event));
 		setTimeout(() => this.inputEl?.focus(), 40);
+	}
+
+	private renderLegend(): void {
+		if (!this.legendEl) return;
+		this.legendEl.empty();
+		const items = [
+			{ kbd: "↑↓", text: "to navigate" },
+			{ kbd: "Alt ↑↓", text: "to cycle history" },
+			{ kbd: "↵", text: "to open" },
+			{ kbd: "Tab", text: "to autocomplete" },
+			{ kbd: "Ctrl ↵", text: "to open in a new pane" },
+			{ kbd: "Ctrl Alt ↵", text: "to open in a new split" },
+			{ kbd: "Ctrl o", text: "to open in the background" },
+			{ kbd: "Shift ↵", text: "to create" },
+			{ kbd: "Ctrl Shift ↵", text: "to create in a new pane" },
+			{ kbd: "Alt ↵", text: "to insert a link" },
+			{ kbd: "Ctrl g", text: "to toggle excerpts" },
+			{ kbd: "Esc", text: "to close" },
+		];
+
+		for (const item of items) {
+			const el = createElement("div", { cls: "umos-omni-legend-item", parent: this.legendEl });
+			createElement("kbd", { text: item.kbd, parent: el });
+			createElement("span", { text: t(item.text), parent: el });
+		}
 	}
 
 	private async buildIndex(): Promise<void> {
@@ -147,18 +183,16 @@ export class OmniSearchModal extends Modal {
 	}
 
 	private renderResults(): void {
-		if (!this.resultsEl || !this.statusEl) return;
+		if (!this.resultsEl || !this.legendEl) return;
 		this.resultsEl.empty();
 
 		if (this.index.length === 0) {
 			this.renderEmpty("No entities indexed", "Try again after Obsidian finishes loading the vault.");
-			this.statusEl.textContent = t("Building search index...");
 			return;
 		}
 
 		if (this.results.length === 0) {
 			this.renderEmpty("No matching entities", "Try another query or filter.");
-			this.statusEl.textContent = `${this.index.length} ${t("entities indexed")}`;
 			return;
 		}
 
@@ -166,7 +200,6 @@ export class OmniSearchModal extends Modal {
 			this.renderResult(result, index);
 		}
 
-		this.statusEl.textContent = `${this.results.length} ${t("results")} · ${this.index.length} ${t("entities indexed")} · ${t("Enter to open")}`;
 		this.scrollSelectedIntoView();
 	}
 
@@ -220,7 +253,16 @@ export class OmniSearchModal extends Modal {
 			this.selectedIndex = index;
 			this.updateSelectedClass();
 		});
-		row.addEventListener("click", () => void this.activate(result));
+		row.addEventListener("click", (e) => {
+			if (Platform.isMobile && this.selectedIndex !== index) {
+				e.preventDefault();
+				this.selectedIndex = index;
+				this.updateSelectedClass();
+				this.scrollSelectedIntoView();
+				return;
+			}
+			void this.activate(result, e);
+		});
 	}
 
 	private renderEmpty(title: string, detail: string): void {
@@ -235,28 +277,56 @@ export class OmniSearchModal extends Modal {
 	private handleKeydown(event: KeyboardEvent): void {
 		if (event.key === "ArrowDown") {
 			event.preventDefault();
-			this.selectedIndex = Math.min(this.results.length - 1, this.selectedIndex + 1);
-			this.updateSelectedClass();
-			this.scrollSelectedIntoView();
+			if (event.altKey) {
+				this.cycleHistory(1);
+			} else {
+				this.selectedIndex = Math.min(this.results.length - 1, this.selectedIndex + 1);
+				this.updateSelectedClass();
+				this.scrollSelectedIntoView();
+			}
 			return;
 		}
 		if (event.key === "ArrowUp") {
 			event.preventDefault();
-			this.selectedIndex = Math.max(0, this.selectedIndex - 1);
-			this.updateSelectedClass();
-			this.scrollSelectedIntoView();
+			if (event.altKey) {
+				this.cycleHistory(-1);
+			} else {
+				this.selectedIndex = Math.max(0, this.selectedIndex - 1);
+				this.updateSelectedClass();
+				this.scrollSelectedIntoView();
+			}
+			return;
+		}
+		if (event.key === "o" && (event.ctrlKey || event.metaKey)) {
+			event.preventDefault();
+			const result = this.results[this.selectedIndex];
+			if (result) void this.activate(result, event);
+			return;
+		}
+		if (event.key === "g" && (event.ctrlKey || event.metaKey)) {
+			event.preventDefault();
+			this.shellEl?.classList.toggle("is-excerpt-hidden");
 			return;
 		}
 		if (event.key === "Enter") {
 			event.preventDefault();
 			const result = this.results[this.selectedIndex];
-			if (result) void this.activate(result);
+			
+			if (event.shiftKey) {
+				const query = this.inputEl?.value.trim() ?? "";
+				if (query) {
+					void this.createNote(query, event.ctrlKey || event.metaKey);
+				}
+				return;
+			}
+
+			if (result) void this.activate(result, event);
 		}
 		if (event.key === "Tab") {
 			const result = this.results[this.selectedIndex];
 			if (result?.action.type === "fill-query") {
 				event.preventDefault();
-				void this.activate(result);
+				void this.activate(result, event);
 			}
 		}
 	}
@@ -274,14 +344,26 @@ export class OmniSearchModal extends Modal {
 		selected?.scrollIntoView({ block: "nearest" });
 	}
 
-	private async activate(result: OmniSearchResult): Promise<void> {
-		await this.runAction(result.action);
+	private async activate(result: OmniSearchResult, event?: KeyboardEvent | MouseEvent): Promise<void> {
+		this.saveHistory(this.inputEl?.value ?? "");
+		await this.runAction(result.action, event);
 	}
 
-	private async runAction(action: OmniSearchAction): Promise<void> {
+	private async runAction(action: OmniSearchAction, event?: KeyboardEvent | MouseEvent): Promise<void> {
 		if (action.type === "open-file") {
 			this.close();
-			await this.openFile(action.path, action.line);
+			const mod = event ? { ctrl: event.ctrlKey || event.metaKey, alt: event.altKey, shift: event.shiftKey } : { ctrl: false, alt: false, shift: false };
+			let leaf: 'current' | 'tab' | 'split' = 'current';
+			if (mod.ctrl && mod.alt) leaf = 'split';
+			else if (mod.ctrl) leaf = 'tab';
+
+			if (mod.alt && !mod.ctrl && !mod.shift) {
+				await this.insertLink(action.path);
+				return;
+			}
+			
+			const background = mod.ctrl && (event as KeyboardEvent)?.key === 'o';
+			await this.openFile(action.path, action.line, leaf, background);
 			return;
 		}
 
@@ -320,11 +402,9 @@ export class OmniSearchModal extends Modal {
 			config: { target: "current" },
 			notify: true,
 		});
-		if (this.statusEl) {
-			this.statusEl.textContent = result.ok ? result.message : `${t("Command failed")}: ${result.message}`;
-			this.statusEl.toggleClass("is-error", !result.ok);
-		}
-		if (result.ok) {
+		if (!result.ok) {
+			new Notice(`${t("Command failed")}: ${result.message}`);
+		} else {
 			if (this.inputEl) this.inputEl.value = "";
 			await this.buildIndex();
 		}
@@ -338,18 +418,18 @@ export class OmniSearchModal extends Modal {
 		this.refreshResults();
 	}
 
-	private async openFile(path: string, line?: number): Promise<void> {
+	private async openFile(path: string, line?: number, leafMode: 'current' | 'tab' | 'split' = 'current', background = false): Promise<void> {
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) {
 			new Notice(`${t("Not found")}: ${path}`);
 			return;
 		}
-		const leaf = this.app.workspace.getLeaf(false);
+		const leaf = this.app.workspace.getLeaf(leafMode === 'split' ? 'split' : leafMode === 'tab' ? 'tab' : false);
 		await leaf.openFile(file, {
-			active: true,
+			active: !background,
 			state: file.extension === "md" ? { mode: "source", source: false } : undefined,
 		});
-		this.app.workspace.setActiveLeaf(leaf, { focus: true });
+		if (!background) this.app.workspace.setActiveLeaf(leaf, { focus: true });
 		if (typeof line === "number" && leaf.view instanceof MarkdownView) {
 			const editor = leaf.view.editor;
 			const targetLine = Math.max(0, Math.min(line, Math.max(0, editor.lineCount() - 1)));
@@ -391,6 +471,51 @@ export class OmniSearchModal extends Modal {
 		const node = cm.domAtPos(line.from).node;
 		const element = node instanceof HTMLElement ? node : node.parentElement;
 		return element?.closest<HTMLElement>(".cm-line") ?? null;
+	}
+
+	private saveHistory(query: string) {
+		const q = query.trim();
+		if (!q || OmniSearchModal.queryHistory[OmniSearchModal.queryHistory.length - 1] === q) return;
+		OmniSearchModal.queryHistory.push(q);
+		if (OmniSearchModal.queryHistory.length > 50) OmniSearchModal.queryHistory.shift();
+	}
+
+	private cycleHistory(dir: number) {
+		if (OmniSearchModal.queryHistory.length === 0) return;
+		if (this.historyIndex === -1) {
+			this.historyIndex = OmniSearchModal.queryHistory.length;
+		}
+		this.historyIndex = Math.max(0, Math.min(OmniSearchModal.queryHistory.length - 1, this.historyIndex + dir));
+		this.fillQuery(OmniSearchModal.queryHistory[this.historyIndex]);
+	}
+
+	private async createNote(title: string, newPane: boolean) {
+		this.close();
+		let path = title;
+		if (!path.toLowerCase().endsWith(".md")) path += ".md";
+		const activeFile = this.app.workspace.getActiveFile();
+		const folder = activeFile ? (activeFile.parent?.path === "/" ? "" : activeFile.parent?.path ?? "") : "";
+		const fullPath = folder ? `${folder}/${path}` : path;
+		
+		let file = this.app.vault.getAbstractFileByPath(fullPath);
+		if (!file) {
+			file = await this.app.vault.create(fullPath, "");
+		}
+		if (file instanceof TFile) {
+			const leaf = this.app.workspace.getLeaf(newPane ? 'tab' : false);
+			await leaf.openFile(file);
+		}
+	}
+
+	private async insertLink(path: string) {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (view) {
+			const file = this.app.vault.getAbstractFileByPath(path);
+			if (file instanceof TFile) {
+				const link = this.app.fileManager.generateMarkdownLink(file, view.file?.path ?? "");
+				view.editor.replaceSelection(link);
+			}
+		}
 	}
 
 	private runPluginCommand(commandId: string): void {

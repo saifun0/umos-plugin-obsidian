@@ -173,6 +173,7 @@ export interface SyncProgress {
 	total: number;
 	percent: number;
 	path?: string;
+	speed?: string;
 	cancellable: boolean;
 }
 

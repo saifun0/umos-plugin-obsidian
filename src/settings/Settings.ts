@@ -80,37 +80,6 @@ export interface ProgressTableData {
 	updatedAt: number;
 }
 
-export interface FocusSessionActive {
-	id: string;
-	title: string;
-	taskFilePath?: string;
-	taskLineNumber?: number;
-	plannedMinutes: number;
-	startedAt: number;
-	pausedAt?: number;
-	pausedSeconds: number;
-	state: "running" | "paused";
-	logToDaily: boolean;
-}
-
-export interface FocusSessionRecord {
-	id: string;
-	title: string;
-	taskFilePath?: string;
-	taskLineNumber?: number;
-	plannedMinutes: number;
-	startedAt: number;
-	endedAt: number;
-	durationSeconds: number;
-	status: "completed" | "cancelled";
-	notePath?: string;
-}
-
-export interface FocusSessionData {
-	active: FocusSessionActive | null;
-	sessions: FocusSessionRecord[];
-}
-
 export interface TriageResolvedItem {
 	resolvedAt: number;
 	projectPath?: string;
@@ -174,7 +143,7 @@ export interface UmOSSettings {
 	homeStatsMetrics: string[];
 	homeScheduleAdvanceDelayMinutes: number;
 	homeScheduleShowPastLessons: boolean;
-	homeQuickCaptureDefaultNoteFolder: string;
+	inboxFolder: string;
 	homeVaultHealthLookbackDays: number;
 	homeAlertsIncludeVaultHealth: boolean;
 
@@ -197,7 +166,6 @@ export interface UmOSSettings {
 	taskCalendarShowDailyNoteTasks: boolean;
 	taskCalendarShowTaskPaths: boolean;
 
-	syncDataPath: string;
 	syncProvider: SyncProvider;
 	syncRemoteRoot: string;
 	syncMode: SyncMode;
@@ -224,6 +192,8 @@ export interface UmOSSettings {
 
 	infoboxSticky: boolean;
 	softWideLineWidth: number;
+
+	hasSeenWelcome: boolean;
 }
 
 export interface UmOSData {
@@ -268,7 +238,6 @@ export interface UmOSData {
 	dashboardProfiles: DashboardProfile[];
 	commandHistory: CommandHistoryItem[];
 	progressTables: Record<string, ProgressTableData>;
-	focus: FocusSessionData;
 	triage: TriageData;
 	sync: VaultSyncData;
 
@@ -334,9 +303,11 @@ export const DEFAULT_SETTINGS: UmOSSettings = {
 	homeStatsMetrics: ["mood", "productivity", "sleep", "prayer_count"],
 	homeScheduleAdvanceDelayMinutes: 60,
 	homeScheduleShowPastLessons: true,
-	homeQuickCaptureDefaultNoteFolder: "10 Inbox",
+	inboxFolder: "10 Inbox",
 	homeVaultHealthLookbackDays: 7,
 	homeAlertsIncludeVaultHealth: true,
+
+	hasSeenWelcome: false,
 
 	graphMapsAutoUpdate: true,
 	graphMapsDebounceSeconds: 5,
@@ -370,7 +341,6 @@ export const DEFAULT_SETTINGS: UmOSSettings = {
 	taskCalendarShowDailyNoteTasks: true,
 	taskCalendarShowTaskPaths: true,
 
-	syncDataPath: "",
 	syncProvider: "webdav",
 	syncRemoteRoot: "umOS Sync",
 	syncMode: "bidirectional",
@@ -435,10 +405,6 @@ export const DEFAULT_DATA: UmOSData = {
 	dashboardProfiles: [],
 	commandHistory: [],
 	progressTables: {},
-	focus: {
-		active: null,
-		sessions: [],
-	},
 	triage: {
 		resolved: {},
 		snoozedUntil: {},

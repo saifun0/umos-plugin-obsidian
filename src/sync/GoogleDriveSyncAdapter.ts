@@ -40,7 +40,7 @@ export class GoogleDriveSyncAdapter implements SyncAdapter {
 	private fileIdByPath = new Map<string, string | null>();
 
 	constructor(options: GoogleDriveAdapterOptions) {
-		this.remoteRoot = normalizeDrivePath(options.remoteRoot || "umOS Sync");
+		this.remoteRoot = "";
 		this.secrets = options.secrets;
 		this.saveSecrets = options.saveSecrets;
 		this.logFn = options.log;

@@ -11,12 +11,16 @@ export class SyncProgressNotice {
 	private pathEl: HTMLElement;
 	private fillEl: HTMLElement;
 	private percentEl: HTMLElement;
+	private speedEl: HTMLElement;
 	private closed = false;
 
 	constructor(private plugin: UmOSPlugin) {
 		this.notice = new Notice("", 0);
 		this.notice.noticeEl.empty();
-		this.notice.noticeEl.addClass("umos-sync-progress-notice");
+		
+		// In newer Obsidian versions, noticeEl is .notice-message, not .notice.
+		const outerNotice = this.notice.noticeEl.closest(".notice") || this.notice.noticeEl;
+		outerNotice.addClass("umos-sync-progress-notice");
 
 		const shell = this.notice.noticeEl.createDiv({ cls: "umos-sync-progress-toast" });
 		const top = shell.createDiv({ cls: "umos-sync-progress-toast-top" });
@@ -26,6 +30,7 @@ export class SyncProgressNotice {
 		const body = top.createDiv({ cls: "umos-sync-progress-toast-body" });
 		const head = body.createDiv({ cls: "umos-sync-progress-toast-head" });
 		this.titleEl = head.createSpan({ cls: "umos-sync-progress-toast-title", text: t("Vault Sync") });
+		this.speedEl = head.createSpan({ cls: "umos-sync-progress-toast-speed" });
 		this.percentEl = head.createSpan({ cls: "umos-sync-progress-toast-percent", text: "0%" });
 		this.detailEl = body.createDiv({ cls: "umos-sync-progress-toast-detail", text: t("Preparing sync...") });
 		this.pathEl = body.createDiv({ cls: "umos-sync-progress-toast-path" });
@@ -36,10 +41,14 @@ export class SyncProgressNotice {
 
 	update(progress: SyncProgress): void {
 		if (this.closed) return;
-		this.notice.noticeEl.toggleClass("is-running", progress.status === "running");
-		this.notice.noticeEl.toggleClass("is-success", progress.status === "success");
-		this.notice.noticeEl.toggleClass("is-failed", progress.status === "failed");
-		this.notice.noticeEl.toggleClass("is-cancelled", progress.status === "cancelled");
+		
+		console.log("umOS Sync update:", progress.status, progress.phase, progress.message);
+		
+		const outerNotice = this.notice.noticeEl.closest(".notice") || this.notice.noticeEl;
+		outerNotice.toggleClass("is-running", progress.status === "running");
+		outerNotice.toggleClass("is-success", progress.status === "success");
+		outerNotice.toggleClass("is-failed", progress.status === "failed");
+		outerNotice.toggleClass("is-cancelled", progress.status === "cancelled");
 
 		this.titleEl.setText(t(getProgressTitle(progress)));
 		this.detailEl.setText(t(progress.message));
@@ -53,6 +62,15 @@ export class SyncProgressNotice {
 		}
 		const percent = Math.max(0, Math.min(100, Math.round(progress.percent)));
 		this.percentEl.setText(`${percent}%`);
+		if (progress.speed) {
+			this.speedEl.setText(progress.speed);
+			this.speedEl.show();
+		} else if (progress.status === "running" && progress.phase === "Syncing") {
+			this.speedEl.setText(t("Calculating..."));
+			this.speedEl.show();
+		} else {
+			this.speedEl.hide();
+		}
 		this.fillEl.style.width = `${percent}%`;
 
 		if (progress.status === "success" || progress.status === "failed" || progress.status === "cancelled" || (progress.status === "idle" && percent >= 100)) {

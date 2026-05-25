@@ -1,7 +1,7 @@
-import { App, Modal, Setting } from "obsidian";
+import { App, Modal, Setting, setIcon } from "obsidian";
 import { t } from "../i18n";
 
-interface FormatItem {
+export interface FormatItem {
 	id: string;
 	category: string;
 	icon: string;
@@ -16,7 +16,7 @@ interface FormatItem {
 	isBlock?: boolean;
 }
 
-const ITEMS: FormatItem[] = [
+export const ITEMS: FormatItem[] = [
 	// ── Markdown ───────────────────────────────────────────────────
 	{
 		id: "md-bold",
@@ -219,6 +219,116 @@ const ITEMS: FormatItem[] = [
 		desc: "Critical warning",
 		snippet: "> [!danger]\n{{blockquote}}",
 		placeholder: "Danger",
+		isBlock: true,
+	},
+	{
+		id: "callout-fail",
+		category: "Callouts",
+		icon: "✕",
+		name: "Fail Callout",
+		desc: "Failure, cancel, or missing",
+		snippet: "> [!fail]\n{{blockquote}}",
+		placeholder: "Failed",
+		isBlock: true,
+	},
+	{
+		id: "callout-cancel-umos",
+		category: "Callouts",
+		icon: "✕",
+		name: "Cancel — umOS",
+		desc: "Custom cancel / failed callout",
+		snippet: "> [!cancel-umos]\n{{blockquote}}",
+		placeholder: "Cancelled",
+		isBlock: true,
+	},
+	{
+		id: "callout-bug",
+		category: "Callouts",
+		icon: "🐛",
+		name: "Bug Callout",
+		desc: "Bug report or issue",
+		snippet: "> [!bug]\n{{blockquote}}",
+		placeholder: "Bug",
+		isBlock: true,
+	},
+	{
+		id: "callout-example",
+		category: "Callouts",
+		icon: "▤",
+		name: "Example Callout",
+		desc: "Example or demonstration",
+		snippet: "> [!example]\n{{blockquote}}",
+		placeholder: "Example",
+		isBlock: true,
+	},
+	{
+		id: "callout-info",
+		category: "Callouts",
+		icon: "i",
+		name: "Info Callout",
+		desc: "General information",
+		snippet: "> [!info]\n{{blockquote}}",
+		placeholder: "Info",
+		isBlock: true,
+	},
+	{
+		id: "callout-idea-umos",
+		category: "Callouts",
+		icon: "💡",
+		name: "Idea — umOS",
+		desc: "Custom idea / tip callout",
+		snippet: "> [!idea-umos]\n{{blockquote}}",
+		placeholder: "Idea",
+		isBlock: true,
+	},
+	{
+		id: "callout-time-umos",
+		category: "Callouts",
+		icon: "🕒",
+		name: "Time — umOS",
+		desc: "Custom time / deadline callout",
+		snippet: "> [!time-umos]\n{{blockquote}}",
+		placeholder: "Deadline",
+		isBlock: true,
+	},
+	{
+		id: "callout-important-umos",
+		category: "Callouts",
+		icon: "⚠",
+		name: "Important — umOS",
+		desc: "Custom important callout",
+		snippet: "> [!important-umos]\n{{blockquote}}",
+		placeholder: "Important",
+		isBlock: true,
+	},
+	{
+		id: "callout-todo",
+		category: "Callouts",
+		icon: "☐",
+		name: "Todo Callout",
+		desc: "Tasks and todos",
+		snippet: "> [!todo]\n{{blockquote}}",
+		placeholder: "Todo",
+		isBlock: true,
+	},
+	{
+		id: "callout-abstract",
+		category: "Callouts",
+		icon: "📑",
+		name: "Abstract Callout",
+		desc: "Summary or abstract",
+		snippet: "> [!abstract]\n{{blockquote}}",
+		placeholder: "Abstract",
+		isBlock: true,
+	},
+	{
+		id: "callout-quote",
+		category: "Callouts",
+		icon: "”",
+		name: "Quote Callout",
+		desc: "Citation or quote",
+		snippet: "> [!quote]\n{{blockquote}}",
+		placeholder: "Quote",
 		isBlock: true,
 	},
 	{
@@ -734,10 +844,17 @@ export class FormatPickerModal extends Modal {
 	private visibleItems: FormatItem[] = [];
 	private listEl!: HTMLElement;
 	private inputEl!: HTMLInputElement;
+	private infoNameEl!: HTMLElement;
+	private infoDescEl!: HTMLElement;
+	private infoBadgeEl!: HTMLElement;
 
 	constructor(app: App, private existingBoardIds: string[] = []) {
 		super(app);
 	}
+
+	
+	private expandedCategories: Set<string> = new Set();
+	private lastFocusedId: string | null = null;
 
 	onOpen(): void {
 		this.modalEl.addClass("umos-format-picker");
@@ -759,110 +876,196 @@ export class FormatPickerModal extends Modal {
 			attr: { type: "text", placeholder: t("Search formatting...") },
 		}) as HTMLInputElement;
 
+		// ── Info Panel ────────────────────────────────────────────────
+		const infoPanel = contentEl.createDiv({ cls: "umos-fp-info-panel" });
+		const infoText = infoPanel.createDiv({ cls: "umos-fp-info-text" });
+		this.infoNameEl = infoText.createSpan({ cls: "umos-fp-info-name" });
+		this.infoDescEl = infoText.createSpan({ cls: "umos-fp-info-desc" });
+		this.infoBadgeEl = infoPanel.createSpan({ cls: "umos-fp-item-badge" });
+
 		// ── List ──────────────────────────────────────────────────────
 		this.listEl = contentEl.createDiv({ cls: "umos-fp-list" });
 
 		// ── Events ────────────────────────────────────────────────────
 		this.inputEl.addEventListener("input", () => {
 			this.query = this.inputEl.value;
-			this.focusedIdx = 0;
 			this.renderList();
 		});
 
 		this.inputEl.addEventListener("keydown", (e) => {
-			if (e.key === "ArrowDown") { e.preventDefault(); this.moveFocus(1); }
-			else if (e.key === "ArrowUp") { e.preventDefault(); this.moveFocus(-1); }
+			if (e.key === "ArrowDown") { e.preventDefault(); this.moveFocus("down"); }
+			else if (e.key === "ArrowUp") { e.preventDefault(); this.moveFocus("up"); }
+			else if (e.key === "ArrowRight") { e.preventDefault(); this.moveFocus("right"); }
+			else if (e.key === "ArrowLeft") { e.preventDefault(); this.moveFocus("left"); }
 			else if (e.key === "Enter") { e.preventDefault(); this.insertFocused(); }
 			else if (e.key === "Escape") { this.close(); }
 		});
 
 		this.renderList();
-		//
 		setTimeout(() => this.inputEl.focus(), 50);
 	}
 
 	private renderList(): void {
-		this.listEl.empty();
-
 		const q = this.query.toLowerCase().trim();
+		
 		const filtered = q
-			? ITEMS.filter(
-				(i) => this.getSearchText(i).includes(q)
-			)
+			? ITEMS.filter((i) => this.getSearchText(i).includes(q))
 			: ITEMS;
 
-		this.visibleItems = filtered;
-		if (this.focusedIdx >= filtered.length) this.focusedIdx = 0;
+		this.listEl.empty();
 
 		if (filtered.length === 0) {
 			this.listEl.createDiv({ cls: "umos-fp-empty", text: t("Nothing found") });
+			this.updateInfoPanelFromElement(null);
 			return;
 		}
 
-		let globalIdx = 0;
-
 		if (q) {
-			//
+			const toolbar = this.listEl.createDiv({ cls: "umos-fp-toolbar" });
 			for (const item of filtered) {
-				this.renderItem(item, globalIdx++);
+				this.renderItem(item, toolbar);
 			}
 		} else {
 			for (const cat of CATEGORY_ORDER) {
 				const group = filtered.filter((i) => i.category === cat);
 				if (group.length === 0) continue;
 
-				this.listEl.createDiv({ cls: "umos-fp-category", text: t(cat) });
-				for (const item of group) {
-					this.renderItem(item, globalIdx++);
+				const isExpanded = this.expandedCategories.has(cat);
+				
+				const header = this.listEl.createDiv({ 
+					cls: "umos-fp-folder-header" + (isExpanded ? " is-expanded" : ""),
+					attr: { "data-cat": cat }
+				});
+				const iconWrap = header.createSpan({ cls: "umos-fp-folder-icon" });
+				setIcon(iconWrap, "chevron-right");
+				header.createSpan({ text: t(cat) });
+
+				header.addEventListener("click", () => {
+					if (this.expandedCategories.has(cat)) this.expandedCategories.delete(cat);
+					else this.expandedCategories.add(cat);
+					this.lastFocusedId = cat;
+					this.renderList();
+				});
+				
+				header.addEventListener("mouseenter", () => {
+					this.setFocus(header);
+				});
+
+				const content = this.listEl.createDiv({ 
+					cls: "umos-fp-folder-content" + (isExpanded ? " is-expanded" : "")
+				});
+				
+				if (isExpanded) {
+					const toolbar = content.createDiv({ cls: "umos-fp-toolbar" });
+					for (const item of group) {
+						this.renderItem(item, toolbar);
+					}
 				}
+			}
+		}
+
+		// Restore focus
+		const els = this.getFocusableElements();
+		let focusTarget = els.find(e => (e.getAttribute("data-cat") || e.getAttribute("data-id")) === this.lastFocusedId);
+		if (!focusTarget && els.length > 0) focusTarget = els[0];
+		
+		if (focusTarget) {
+			this.setFocus(focusTarget);
+		} else {
+			this.updateInfoPanelFromElement(null);
+		}
+	}
+
+	private renderItem(item: FormatItem, parent: HTMLElement): void {
+		const btn = parent.createDiv({
+			cls: "umos-fp-toolbar-btn",
+			attr: { "data-id": item.id },
+		});
+		btn.createSpan({ text: item.icon });
+
+		btn.addEventListener("click", () => this.insertItem(item));
+		btn.addEventListener("mouseenter", () => {
+			this.setFocus(btn);
+		});
+	}
+
+	private getFocusableElements(): HTMLElement[] {
+		return Array.from(this.listEl.querySelectorAll(".umos-fp-folder-header, .umos-fp-toolbar-btn"));
+	}
+
+	private setFocus(el: HTMLElement): void {
+		this.listEl.querySelectorAll(".is-focused").forEach(e => e.removeClass("is-focused"));
+		el.addClass("is-focused");
+		this.lastFocusedId = el.getAttribute("data-cat") || el.getAttribute("data-id");
+		this.updateInfoPanelFromElement(el);
+	}
+
+	private moveFocus(dir: "up" | "down" | "left" | "right"): void {
+		const els = this.getFocusableElements();
+		if (els.length === 0) return;
+		
+		const current = this.listEl.querySelector(".is-focused") as HTMLElement;
+		let idx = current ? els.indexOf(current) : -1;
+		if (idx === -1) idx = 0;
+
+		if (dir === "left" || dir === "right") {
+			idx = (idx + (dir === "right" ? 1 : -1) + els.length) % els.length;
+		} else {
+			if (dir === "down") {
+				const nextHeaderIdx = els.findIndex((e, i) => i > idx && e.hasClass("umos-fp-folder-header"));
+				idx = nextHeaderIdx !== -1 ? nextHeaderIdx : (idx + 1) % els.length;
+			} else {
+				let prevHeaderIdx = -1;
+				for (let i = idx - 1; i >= 0; i--) {
+					if (els[i].hasClass("umos-fp-folder-header")) {
+						prevHeaderIdx = i;
+						break;
+					}
+				}
+				idx = prevHeaderIdx !== -1 ? prevHeaderIdx : (idx - 1 + els.length) % els.length;
+			}
+		}
+
+		this.setFocus(els[idx]);
+		els[idx].scrollIntoView({ block: "nearest", behavior: "smooth" });
+	}
+
+	private updateInfoPanelFromElement(el: HTMLElement | null): void {
+		if (!el) {
+			this.infoNameEl.textContent = t("Hover over a tool");
+			this.infoDescEl.textContent = "";
+			this.infoBadgeEl.style.display = "none";
+			return;
+		}
+
+		if (el.hasClass("umos-fp-folder-header")) {
+			this.infoNameEl.textContent = el.innerText.trim();
+			this.infoDescEl.textContent = t("Press Enter to toggle folder");
+			this.infoBadgeEl.style.display = "none";
+		} else {
+			const id = el.getAttribute("data-id");
+			const item = ITEMS.find(i => i.id === id);
+			if (item) {
+				this.infoNameEl.textContent = t(item.name);
+				this.infoDescEl.textContent = t(item.desc);
+				this.infoBadgeEl.textContent = this.getItemBadge(item);
+				this.infoBadgeEl.className = "umos-fp-item-badge" + (item.isCssClass ? " umos-fp-item-badge--cls" : "");
+				this.infoBadgeEl.style.display = "";
 			}
 		}
 	}
 
-	private renderItem(item: FormatItem, idx: number): void {
-		const row = this.listEl.createDiv({
-			cls: `umos-fp-item${idx === this.focusedIdx ? " is-focused" : ""}`,
-			attr: { "data-idx": String(idx) },
-		});
-
-		row.createSpan({ cls: "umos-fp-item-icon", text: item.icon });
-
-		const text = row.createDiv({ cls: "umos-fp-item-text" });
-		text.createSpan({ cls: "umos-fp-item-name", text: t(item.name) });
-		text.createSpan({ cls: "umos-fp-item-desc", text: t(item.desc) });
-
-		const badge = row.createSpan({
-			cls: "umos-fp-item-badge",
-			text: this.getItemBadge(item),
-		});
-		if (item.isCssClass) badge.addClass("umos-fp-item-badge--cls");
-
-		row.addEventListener("click", () => this.insertItem(item));
-		row.addEventListener("mouseenter", () => {
-			this.focusedIdx = idx;
-			this.highlightFocused();
-		});
-	}
-
-	private moveFocus(delta: number): void {
-		const len = this.visibleItems.length;
-		if (len === 0) return;
-		this.focusedIdx = (this.focusedIdx + delta + len) % len;
-		this.highlightFocused();
-		//
-		const focused = this.listEl.querySelector(".umos-fp-item.is-focused");
-		focused?.scrollIntoView({ block: "nearest" });
-	}
-
-	private highlightFocused(): void {
-		this.listEl.querySelectorAll(".umos-fp-item").forEach((el, i) => {
-			el.toggleClass("is-focused", i === this.focusedIdx);
-		});
-	}
-
 	private insertFocused(): void {
-		const item = this.visibleItems[this.focusedIdx];
-		if (item) this.insertItem(item);
+		const current = this.listEl.querySelector(".is-focused") as HTMLElement;
+		if (!current) return;
+		
+		if (current.hasClass("umos-fp-folder-header")) {
+			current.click();
+		} else {
+			const id = current.getAttribute("data-id");
+			const item = ITEMS.find(i => i.id === id);
+			if (item) this.insertItem(item);
+		}
 	}
 
 	private insertItem(item: FormatItem): void {
@@ -983,7 +1186,7 @@ export class FormatPickerModal extends Modal {
 
 // ── Kanban Board Picker Modal ────────────────────────────────────────────
 
-class KanbanBoardPickerModal extends Modal {
+export class KanbanBoardPickerModal extends Modal {
 	private inputEl!: HTMLInputElement;
 
 	constructor(

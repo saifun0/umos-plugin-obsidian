@@ -1,8 +1,9 @@
-import { App, EventRef, ItemView, MarkdownView, WorkspaceLeaf, moment, setIcon } from 'obsidian';
+import { App, EventRef, ItemView, MarkdownView, WorkspaceLeaf, moment, setIcon, Notice } from 'obsidian';
 import type UmOSPlugin from '../../main';
 import { getLocale, t } from '../../i18n';
 import { TaskService } from './TaskService';
 import { Task } from './Task';
+import { TaskEditorModal } from './TaskEditorModal';
 
 export const TASK_CALENDAR_VIEW_TYPE = 'umos-task-calendar-view';
 
@@ -259,13 +260,24 @@ export class TaskCalendarView extends ItemView {
 		setIcon(icon, 'plus');
 		button.createSpan({ text: t('Create task') });
 		button.addEventListener('click', () => {
-			this.plugin.openQuickCaptureModal({
-				initial: {
-					activeTab: 'task',
-					task: { dueDate: this.selectedDate },
-				},
-				onSuccess: () => this.scheduleRender(120),
-			});
+			const newTask = new Task('', '', 0);
+			newTask.description = '';
+			newTask.dueDate = this.selectedDate;
+			newTask.tags = [];
+
+			const modal = new TaskEditorModal(this.obsidianApp, newTask, async (task, subtasks) => {
+				const filePath = this.resolveCreateTargetPath(this.selectedDate);
+				if (!filePath) {
+					new Notice(t('Could not determine the task file.'));
+					return;
+				}
+				const lineNum = await this.service.createTask(task, filePath);
+				if (subtasks.length > 0 && lineNum >= 0) {
+					await this.service.addSubtasksAfterLine(filePath, lineNum, task.indentation, subtasks);
+				}
+				setTimeout(() => void this.renderAsync(), 300);
+			}, undefined, this.plugin);
+			modal.open();
 		});
 	}
 
@@ -283,6 +295,11 @@ export class TaskCalendarView extends ItemView {
 
 	private renderPanelTask(parent: HTMLElement, entry: CalendarEntry): void {
 		const item = parent.createDiv({ cls: `umos-task-calendar-panel-task is-${entry.kind}` });
+		if (entry.task.indentation > 0) {
+			item.style.marginLeft = `${entry.task.indentation * 16}px`;
+			item.classList.add('is-subtask');
+		}
+
 		const top = item.createDiv({ cls: 'umos-task-calendar-panel-task-top' });
 		top.createSpan({ cls: `umos-task-calendar-kind-dot is-${entry.kind}` });
 
@@ -487,14 +504,30 @@ export class TaskCalendarView extends ItemView {
 		return `${entry.task.filePath}:${entry.task.lineNumber}:${entry.kind}`;
 	}
 
+	private getRootTask(task: Task): Task {
+		let current = task;
+		while (current.parent) {
+			current = current.parent as Task;
+		}
+		return current;
+	}
+
 	private compareEntries(a: CalendarEntry, b: CalendarEntry): number {
 		const dateCompare = a.date.localeCompare(b.date);
 		if (dateCompare !== 0) return dateCompare;
-		const kindCompare = this.getKindWeight(a.kind) - this.getKindWeight(b.kind);
-		if (kindCompare !== 0) return kindCompare;
-		const priorityCompare = this.getPriorityWeight(a.task.priority) - this.getPriorityWeight(b.task.priority);
-		if (priorityCompare !== 0) return priorityCompare;
-		return a.task.description.localeCompare(b.task.description);
+
+		const rootA = a.task.parent ? this.getRootTask(a.task) : a.task;
+		const rootB = b.task.parent ? this.getRootTask(b.task) : b.task;
+
+		if (rootA !== rootB) {
+			const kindCompare = this.getKindWeight(a.kind) - this.getKindWeight(b.kind);
+			if (kindCompare !== 0) return kindCompare;
+			const priorityCompare = this.getPriorityWeight(rootA.priority) - this.getPriorityWeight(rootB.priority);
+			if (priorityCompare !== 0) return priorityCompare;
+			return rootA.description.localeCompare(rootB.description);
+		}
+
+		return a.task.lineNumber - b.task.lineNumber;
 	}
 
 	private getCalendarRange(): CalendarRange {
@@ -623,6 +656,24 @@ export class TaskCalendarView extends ItemView {
 
 		const match = normalizedPath.match(/(\d{4}-\d{2}-\d{2})/);
 		return match ? match[1] : null;
+	}
+
+	private resolveCreateTargetPath(dateStr: string): string | null {
+		const dailyRoot = (this.plugin.settings.dailyNotesPath || '').replace(/\\/g, '/').replace(/\/+$/, '');
+		const format = this.plugin.settings.dailyNoteFormat || 'YYYY-MM-DD';
+		const date = moment(dateStr, 'YYYY-MM-DD');
+		if (date.isValid()) {
+			const filename = date.format(format);
+			return dailyRoot ? `${dailyRoot}/${filename}.md` : `${filename}.md`;
+		}
+		
+		const paths = this.plugin.settings.taskCalendarTaskPaths.split(',').map(p => p.trim()).filter(Boolean);
+		if (paths.length > 0) {
+			const firstPath = paths[0];
+			return firstPath.endsWith('.md') ? firstPath : `${firstPath}/Tasks.md`.replace(/^\/+/, '');
+		}
+		
+		return 'Tasks.md';
 	}
 
 	private createIconButton(parent: HTMLElement, icon: string, label: string, onClick: () => void): HTMLButtonElement {

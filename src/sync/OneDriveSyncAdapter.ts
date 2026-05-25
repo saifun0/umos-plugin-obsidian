@@ -23,7 +23,7 @@ export class OneDriveSyncAdapter implements SyncAdapter {
 	private ensuredDirs = new Set<string>();
 
 	constructor(options: OneDriveAdapterOptions) {
-		this.remoteRoot = normalizeOneDrivePath(options.remoteRoot || "umOS Sync");
+		this.remoteRoot = "";
 		this.secrets = options.secrets;
 		this.saveSecrets = options.saveSecrets;
 		this.logFn = options.log;

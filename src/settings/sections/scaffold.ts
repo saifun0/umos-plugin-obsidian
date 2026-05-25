@@ -1,5 +1,4 @@
 import { Notice, Setting, TAbstractFile } from "obsidian";
-import { DEFAULT_SETTINGS, DEFAULT_DATA } from "../Settings";
 import { SettingsContext, createSection } from "../helpers";
 
 export function renderScaffoldSection(containerEl: HTMLElement, ctx: SettingsContext): void {
@@ -12,7 +11,7 @@ export function renderScaffoldSection(containerEl: HTMLElement, ctx: SettingsCon
 
 	new Setting(sectionEl)
 		.setName("Create Structure")
-		.setDesc("Existing files and folders will be moved to temp/")
+		.setDesc("Moves all root files safely to a temp/ folder and creates default directories: 00 Files, 05 Dashboards, 10 Inbox, 11 Journal, 20 Projects, 30 Content, 40 Resources, 45 Study, 50 Archive, 99 Trash.")
 		.addButton((btn) =>
 			btn
 				.setButtonText("Create Directories")
@@ -33,21 +32,7 @@ export function renderScaffoldSection(containerEl: HTMLElement, ctx: SettingsCon
 				})
 		);
 
-	new Setting(sectionEl)
-		.setName("Reset Settings")
-		.setDesc("Restore all settings to their defaults")
-		.addButton((btn) =>
-			btn
-				.setButtonText("Reset")
-				.setWarning()
-				.onClick(async () => {
-					ctx.plugin.settings = { ...DEFAULT_SETTINGS };
-					ctx.plugin.data_store = { ...DEFAULT_DATA };
-					await ctx.saveSettings();
-					ctx.display();
-					new Notice("✅ Settings reset");
-				})
-		);
+
 }
 
 async function scaffoldVault(ctx: SettingsContext): Promise<void> {

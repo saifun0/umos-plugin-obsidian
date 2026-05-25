@@ -193,6 +193,10 @@ function isIgnorableCodeBlock(pre: HTMLPreElement, code: HTMLElement, rawCode: s
 	if (rawCode.trim().length === 0) return true;
 	if (pre.classList.contains("frontmatter") || code.classList.contains("frontmatter")) return true;
 	if (pre.closest(".metadata-container, .frontmatter-container, .metadata-properties")) return true;
+	
+	const language = getCodeLanguage(code);
+	if (["mermaid", "dataview", "dataviewjs", "tracker", "chart", "excalidraw", "plantuml"].includes(language)) return true;
+	
 	return false;
 }
 

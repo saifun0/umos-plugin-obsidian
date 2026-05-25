@@ -9,15 +9,15 @@ import { renderPrayerSection } from "./sections/prayer";
 import { renderScheduleSection } from "./sections/schedule";
 import { renderContentSection } from "./sections/content";
 import { renderHomeSection } from "./sections/home";
-import { renderQuickCaptureSettingsSection } from "./sections/quickCapture";
 import { renderTaskCalendarSection } from "./sections/taskCalendar";
 import { renderStatsSection } from "./sections/stats";
 import { renderSyncSection } from "./sections/sync";
-import { renderGraphMapsSection } from "./sections/graphMaps";
+
 import { renderProfileSection } from "./sections/profile";
 import { renderDemoNoteSection } from "./sections/demoNote";
 import { renderDashboardSection, renderDiagnosticsSection } from "./sections/dashboard";
-import { renderAlertsSettingsSection, renderVaultHealthSettingsSection } from "./sections/health";
+import { renderDebugSection } from "./sections/debug";
+import { renderVaultGuideSection } from "./sections/guide";
 import { UMOS_ICON_ID } from "../branding";
 
 interface SettingsTabMeta {
@@ -115,20 +115,7 @@ const TABS = [
 		description: "Dashboard profiles, presets, preview, note generation, and diagnostics.",
 		group: "build",
 	},
-	{
-		id: "graph",
-		icon: "network",
-		label: "Graph & Indexes",
-		description: "Generated graph maps, indexes, and metadata cleanup.",
-		group: "build",
-	},
-	{
-		id: "health",
-		icon: "shield-check",
-		label: "Alerts & Health",
-		description: "Home alerts, vault health checks, and visible warnings.",
-		group: "build",
-	},
+
 	{
 		id: "sync",
 		icon: "refresh-cw",
@@ -140,8 +127,22 @@ const TABS = [
 		id: "vault",
 		icon: "database-zap",
 		label: "Vault Setup",
-		description: "Default vault structure, demo note generation, and legacy JSON tools.",
+		description: "Default vault structure and demo note generation.",
 		group: "data",
+	},
+	{
+		id: "guide",
+		icon: "book",
+		label: "Vault Guide",
+		description: "Documentation on vault folders and dynamic frontmatter.",
+		group: "data",
+	},
+	{
+		id: "debug",
+		icon: "bug",
+		label: "Debug Tools",
+		description: "Advanced functions, index rebuilding, and system reset.",
+		group: "build",
 	},
 ] as const satisfies readonly SettingsTabMeta[];
 
@@ -219,7 +220,6 @@ export class UmOSSettingsTab extends PluginSettingTab {
 
 		renderTaskCalendarSection(groups.tasks, ctx);
 
-		renderQuickCaptureSettingsSection(groups.capture, ctx);
 
 		renderPrayerSection(groups.prayer, ctx);
 		renderLocationSection(groups.prayer, ctx);
@@ -231,15 +231,15 @@ export class UmOSSettingsTab extends PluginSettingTab {
 		renderDashboardSection(groups.dashboard, ctx);
 		renderDiagnosticsSection(groups.dashboard, ctx);
 
-		renderGraphMapsSection(groups.graph, ctx);
 
-		renderAlertsSettingsSection(groups.health, ctx);
-		renderVaultHealthSettingsSection(groups.health, ctx);
 
 		renderSyncSection(groups.sync, ctx);
 
 		renderScaffoldSection(groups.vault, ctx);
 		renderDemoNoteSection(groups.vault, ctx);
+
+		if (groups.guide) renderVaultGuideSection(groups.guide, ctx);
+		if (groups.debug) renderDebugSection(groups.debug, ctx);
 
 		this.wrapSettingsSections(rootEl);
 		this.showView(this.activeView, pages, mainPage);

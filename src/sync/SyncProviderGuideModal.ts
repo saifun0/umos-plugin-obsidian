@@ -60,23 +60,20 @@ const SYNC_PROVIDER_GUIDES: Record<SyncProvider, SyncProviderGuide> = {
 		],
 	},
 	dropbox: {
-		subtitle: "Dropbox uses OAuth and stores data in the app folder for the connected Dropbox app.",
-		fields: ["Dropbox app key", "Dropbox auth code", "Remote root"],
+		subtitle: "Dropbox uses a one-click OAuth connection to securely link your account.",
+		fields: ["Remote root"],
 		sections: [
 			{
 				title: "Setup steps",
 				items: [
-					"Create a Dropbox app with scoped access in the Dropbox App Console.",
-					"Enable account_info.read, files.metadata.read, files.content.read, and files.content.write scopes.",
-					"Paste the app key, generate the auth link, approve it, then exchange the returned code.",
-					"Use Test connection after the refresh token is saved.",
+					"Click 'Connect to Dropbox' to securely link your account.",
+					"Use Test connection after the account is linked.",
 				],
 			},
 			{
 				title: "Common fixes",
 				items: [
-					"If Dropbox says a scope is missing, enable it in the app settings and reconnect Dropbox.",
-					"If the auth code was already used, generate a new authorization link.",
+					"If connection fails, check your internet or firewall.",
 				],
 			},
 		],

@@ -6,6 +6,7 @@ import { GoogleDriveSyncAdapter } from "./GoogleDriveSyncAdapter";
 import { LocalFolderSyncAdapter } from "./LocalFolderSyncAdapter";
 import { OneDriveSyncAdapter } from "./OneDriveSyncAdapter";
 import { S3SyncAdapter } from "./S3SyncAdapter";
+import { exchangeDropboxAuthCode } from "./DropboxOAuth";
 import {
 	arrayBufferToString,
 	decryptBytes,
@@ -65,6 +66,29 @@ export class VaultSyncService {
 		this.cancelled = true;
 	}
 
+	async exchangeOAuthCode(provider: string, code: string): Promise<void> {
+		const secrets = await this.loadSecrets();
+		
+
+
+		if (provider === "dropbox") {
+			if (!secrets.dropboxCodeVerifier) throw new Error("Missing Dropbox Code Verifier. Start the flow from Settings again.");
+			const token = await exchangeDropboxAuthCode(code, secrets.dropboxCodeVerifier);
+			await this.saveSecrets({
+				dropboxAccessToken: token.accessToken,
+				dropboxAccessTokenExpiresAt: token.expiresAt,
+				dropboxRefreshToken: token.refreshToken ?? secrets.dropboxRefreshToken,
+				dropboxAccountId: token.accountId ?? secrets.dropboxAccountId,
+				dropboxCodeVerifier: "",
+			});
+			return;
+		}
+
+
+
+		throw new Error(`Unsupported OAuth provider: ${provider}`);
+	}
+
 	async loadSecrets(): Promise<SyncSecrets> {
 		const path = this.getSecretsPath();
 		try {
@@ -119,6 +143,7 @@ export class VaultSyncService {
 	}
 
 	async run(options: SyncRunOptions = {}): Promise<SyncRunResult> {
+		await this.truncateDebugLogIfNeeded();
 		if (this.running) throw new Error("Vault sync is already running");
 		this.running = true;
 		this.cancelled = false;
@@ -184,9 +209,9 @@ export class VaultSyncService {
 			await this.appendDebugLog(runId, "info", "plan:done", plan.summary);
 
 			if (!dryRun) {
-				await this.applyPlan(plan.actions, manifest, state, adapter, secrets, (current, total, path, message) => {
+				await this.applyPlan(plan.actions, manifest, state, adapter, secrets, (current, total, path, message, speed) => {
 					const applyPercent = total > 0 ? 66 + (current / total) * 26 : 88;
-					progress("Syncing", message, applyPercent, 100, path);
+					progress("Syncing", message, applyPercent, 100, path, speed);
 				}, runId);
 				this.throwIfCancelled();
 				progress("Saving", "Saving remote manifest...", 94, 100);
@@ -262,15 +287,25 @@ export class VaultSyncService {
 		state: SyncState,
 		adapter: SyncAdapter,
 		secrets: SyncSecrets,
-		onProgress?: (current: number, total: number, path: string, message: string) => void,
+		onProgress?: (current: number, total: number, path: string, message: string, speed?: string) => void,
 		runId?: string
 	): Promise<void> {
 		const total = Math.max(1, actions.length);
 		let current = 0;
+		let bytesTransferred = 0;
+		const startedAt = Date.now();
 		for (const action of actions) {
 			this.throwIfCancelled();
 			current++;
-			onProgress?.(current, total, action.path, getActionProgressMessage(action.type));
+			
+			const elapsedMs = Date.now() - startedAt;
+			let speed = "";
+			if (elapsedMs > 500 && bytesTransferred > 0) {
+				const bps = bytesTransferred / (elapsedMs / 1000);
+				speed = formatSpeed(bps);
+			}
+			
+			onProgress?.(current, total, action.path, getActionProgressMessage(action.type), speed);
 			if (runId) {
 				await this.appendDebugLog(runId, "info", "action:start", {
 					index: current,
@@ -286,10 +321,12 @@ export class VaultSyncService {
 				case "upload":
 					if (!action.local) break;
 					await this.uploadFile(action.local, manifest, state, adapter, secrets);
+					bytesTransferred += action.local.size;
 					break;
 				case "download":
 					if (!action.remote) break;
 					await this.downloadFile(action.remote, state, adapter, secrets);
+					bytesTransferred += action.remote.size;
 					break;
 				case "delete-local":
 					await this.deleteLocalFile(action.path, state);
@@ -671,21 +708,34 @@ export class VaultSyncService {
 			.then(async () => {
 				await this.ensureLocalFolder(this.getPluginDir());
 				const path = this.getDebugLogPath();
-				let current = "";
 				if (await this.app.vault.adapter.exists(path)) {
-					current = await this.app.vault.adapter.read(path);
-					if (current.length > DEBUG_LOG_MAX_CHARS) {
-						current = current.slice(-Math.floor(DEBUG_LOG_MAX_CHARS * 0.75));
-						const firstLineEnd = current.indexOf("\n");
-						if (firstLineEnd >= 0) current = current.slice(firstLineEnd + 1);
-					}
+					await this.app.vault.adapter.append(path, `${line}\n`);
+				} else {
+					await this.app.vault.adapter.write(path, `${line}\n`);
 				}
-				await this.app.vault.adapter.write(path, `${current}${line}\n`);
 			})
 			.catch((error) => {
 				console.warn("umOS sync: failed to write debug log", error);
 			});
 		return this.logWriteQueue;
+	}
+
+	private async truncateDebugLogIfNeeded(): Promise<void> {
+		try {
+			await this.ensureLocalFolder(this.getPluginDir());
+			const path = this.getDebugLogPath();
+			if (!(await this.app.vault.adapter.exists(path))) return;
+			
+			const current = await this.app.vault.adapter.read(path);
+			if (current.length > DEBUG_LOG_MAX_CHARS) {
+				let truncated = current.slice(-Math.floor(DEBUG_LOG_MAX_CHARS * 0.75));
+				const firstLineEnd = truncated.indexOf("\n");
+				if (firstLineEnd >= 0) truncated = truncated.slice(firstLineEnd + 1);
+				await this.app.vault.adapter.write(path, truncated);
+			}
+		} catch (error) {
+			console.warn("umOS sync: failed to truncate debug log", error);
+		}
 	}
 
 	private createDeviceId(): string {
@@ -716,9 +766,10 @@ function createProgressEmitter(callback?: (progress: SyncProgress) => void): (
 	message: string,
 	current: number,
 	total: number,
-	path?: string
+	path?: string,
+	speed?: string
 ) => void {
-	return (phase, message, current, total, path) => {
+	return (phase, message, current, total, path, speed) => {
 		if (!callback) return;
 		const safeTotal = Math.max(1, total);
 		const safeCurrent = Math.max(0, Math.min(safeTotal, current));
@@ -732,9 +783,16 @@ function createProgressEmitter(callback?: (progress: SyncProgress) => void): (
 			total: safeTotal,
 			percent: (safeCurrent / safeTotal) * 100,
 			path,
+			speed,
 			cancellable: true,
 		});
 	};
+}
+
+function formatSpeed(bytesPerSec: number): string {
+	if (bytesPerSec < 1024) return `${Math.round(bytesPerSec)} B/s`;
+	if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+	return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
 }
 
 function getActionProgressMessage(type: ReturnType<typeof planSync>["actions"][number]["type"]): string {

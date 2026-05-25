@@ -29,7 +29,7 @@ export class DropboxSyncAdapter implements SyncAdapter {
 	private ensuredDirs = new Set<string>();
 
 	constructor(options: DropboxAdapterOptions) {
-		this.remoteRoot = normalizeDropboxRelativePath(options.remoteRoot || "umOS Sync");
+		this.remoteRoot = "";
 		this.secrets = options.secrets;
 		this.saveSecrets = options.saveSecrets;
 		this.logFn = options.log;
@@ -164,10 +164,9 @@ export class DropboxSyncAdapter implements SyncAdapter {
 		const expiresAt = this.secrets.dropboxAccessTokenExpiresAt ?? 0;
 		if (current && expiresAt > Date.now() + 60_000) return current;
 
-		const token = await refreshDropboxAccessToken(
-			this.secrets.dropboxAppKey ?? "",
-			this.secrets.dropboxRefreshToken ?? ""
-		);
+			const token = await refreshDropboxAccessToken(
+				this.secrets.dropboxRefreshToken ?? ""
+			);
 		this.secrets = {
 			...this.secrets,
 			dropboxAccessToken: token.accessToken,

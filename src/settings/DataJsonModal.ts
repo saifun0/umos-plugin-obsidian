@@ -283,7 +283,6 @@ export class DataJsonModal extends Modal {
 	private getSyncPathCandidates(): string[] {
 		const pluginRoot = this.getPluginRootPath();
 		const candidates = [
-			this.ctx.settings.syncDataPath,
 			pluginRoot ? `${pluginRoot}/syns.json` : "",
 			"syns.json",
 			pluginRoot ? `${pluginRoot}/sync.json` : "",
@@ -298,8 +297,7 @@ export class DataJsonModal extends Modal {
 	}
 
 	private getPreferredSyncPath(): string {
-		const path = this.ctx.settings.syncDataPath?.trim();
-		return normalizePath(path || this.getDefaultSyncPath());
+		return normalizePath(this.getDefaultSyncPath());
 	}
 
 	private getDefaultSyncPath(): string {

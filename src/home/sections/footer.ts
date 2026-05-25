@@ -1,6 +1,7 @@
 import { TFile, TFolder } from "obsidian";
 import { HomeViewContext } from "../types";
 import { createElement } from "../../utils/dom";
+import { t, plural } from "../../i18n";
 
 export function renderFooter(parent: HTMLElement, ctx: HomeViewContext): void {
 	const footer = createElement("div", {
@@ -27,12 +28,18 @@ export function renderFooter(parent: HTMLElement, ctx: HomeViewContext): void {
 		).length;
 	}
 
+	const getLabel = (count: number, enOne: string, ruOne: string, ruFew: string, ruMany: string) => {
+		const lang = (window as any).moment?.locale() || "en";
+		if (lang === "ru") return plural(count, ruOne, ruFew, ruMany);
+		return count === 1 ? enOne : enOne + "s";
+	};
+
 	const footerGrid = createElement("div", { cls: "umos-home-footer-grid", parent: footer });
 
 	const footerItems = [
-		{ icon: "📝", value: String(totalNotes), label: "notes" },
-		{ icon: "✅", value: String(totalTasks), label: "tasks" },
-		{ icon: "🚀", value: String(totalProjects), label: "projects" },
+		{ icon: "📝", value: String(totalNotes), label: getLabel(totalNotes, "note", "заметка", "заметки", "заметок") },
+		{ icon: "✅", value: String(totalTasks), label: getLabel(totalTasks, "task", "задача", "задачи", "задач") },
+		{ icon: "🚀", value: String(totalProjects), label: getLabel(totalProjects, "project", "проект", "проекта", "проектов") },
 	];
 
 	for (const fi of footerItems) {

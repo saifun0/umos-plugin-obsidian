@@ -1,8 +1,9 @@
-import { setIcon } from "obsidian";
+import { setIcon, Menu } from "obsidian";
 import { HomeViewContext } from "../types";
 import { createElement } from "../../utils/dom";
 import { TaskService } from "../../productivity/tasks/TaskService";
 import { Task } from "../../productivity/tasks/Task";
+import { t } from "../../i18n";
 
 const RU_MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -305,6 +306,7 @@ function renderTaskItems(
 	tasks: Task[],
 	overdueKeys: Set<string>,
 	ctx: HomeViewContext,
+	taskService: TaskService,
 	limit = 5,
 ): void {
 	const list = createElement("div", { cls: "umos-home-task-stream-list", parent });
@@ -330,6 +332,32 @@ function renderTaskItems(
 			parent: taskEl,
 		});
 		setTaskStatusIcon(statusEl, task, isOverdueTask);
+
+		statusEl.addEventListener("click", (e) => {
+			e.stopPropagation();
+			const menu = new Menu();
+			menu.addItem((item) => {
+				item.setTitle(t("To Do")).setIcon("circle").onClick(() => {
+					void taskService.bulkUpdate([task], { status: "todo" });
+				});
+			});
+			menu.addItem((item) => {
+				item.setTitle(t("In Progress")).setIcon("play").onClick(() => {
+					void taskService.bulkUpdate([task], { status: "doing" });
+				});
+			});
+			menu.addItem((item) => {
+				item.setTitle(t("Done")).setIcon("check-circle-2").onClick(() => {
+					void taskService.bulkUpdate([task], { status: "done" });
+				});
+			});
+			menu.addItem((item) => {
+				item.setTitle(t("Cancelled")).setIcon("circle-x").onClick(() => {
+					void taskService.bulkUpdate([task], { status: "cancelled" });
+				});
+			});
+			menu.showAtMouseEvent(e);
+		});
 
 		const body = createElement("div", { cls: "umos-home-task-card-body", parent: taskEl });
 		const topRow = createElement("div", { cls: "umos-home-task-card-top", parent: body });
@@ -415,6 +443,7 @@ function renderTaskStream(
 		tasks: Task[];
 		overdueKeys: Set<string>;
 		ctx: HomeViewContext;
+		taskService: TaskService;
 		emptyText?: string;
 		limit?: number;
 	},
@@ -459,7 +488,7 @@ function renderTaskStream(
 		return;
 	}
 
-	renderTaskItems(stream, options.tasks, options.overdueKeys, options.ctx, options.limit ?? 5);
+	renderTaskItems(stream, options.tasks, options.overdueKeys, options.ctx, options.taskService, options.limit ?? 5);
 }
 
 export function renderTasksSection(parent: HTMLElement, ctx: HomeViewContext): void {
@@ -469,28 +498,29 @@ export function renderTasksSection(parent: HTMLElement, ctx: HomeViewContext): v
 	});
 	const taskService = new TaskService(ctx.app);
 
-	taskService.getHomeTasks().then(({ overdue, dueToday, dueTomorrow, inProgress }) => {
+	taskService.getHomeTasks().then(({ overdue, dueToday, dueTomorrow, inProgress, completedToday }) => {
 		const overdueKeys = new Set(overdue.map(getTaskKey));
 		const urgentTasks = [...sortHomeTasks(overdue), ...sortHomeTasks(dueToday)];
 		const tomorrowTasks = sortHomeTasks(dueTomorrow);
 		const sortedInProgress = sortHomeTasks(inProgress);
 		const visibleInProgress = sortedInProgress.filter((task) => !hasDoingAncestor(task));
+		const completedTasks = sortHomeTasks(completedToday);
 
 		const hero = createElement("div", { cls: "umos-home-tasks-hero", parent: section });
 		const heroCopy = createElement("div", { cls: "umos-home-tasks-hero-copy", parent: hero });
 		createElement("div", {
 			cls: "umos-home-tasks-kicker",
-			text: overdue.length > 0 ? "Needs attention" : "Daily Focus",
+			text: overdue.length > 0 ? t("Needs attention") : t("Daily Focus"),
 			parent: heroCopy,
 		});
 		createElement("div", {
 			cls: "umos-home-section-title",
-			text: "Tasks",
+			text: t("Tasks"),
 			parent: heroCopy,
 		});
 		createElement("div", {
 			cls: "umos-home-tasks-subtitle",
-			text: getHeroSubtitle(urgentTasks.length, tomorrowTasks.length, overdue.length, sortedInProgress.length),
+			text: t(getHeroSubtitle(urgentTasks.length, tomorrowTasks.length, overdue.length, sortedInProgress.length)),
 			parent: heroCopy,
 		});
 
@@ -502,63 +532,79 @@ export function renderTasksSection(parent: HTMLElement, ctx: HomeViewContext): v
 		});
 		createElement("span", {
 			cls: "umos-home-tasks-total-label",
-			text: "active",
+			text: t("active"),
 			parent: totalCard,
 		});
 
-		const metrics = createElement("div", { cls: "umos-home-tasks-metrics", parent: section });
-		renderMetric(metrics, "today", urgentTasks.length, "calendar", "is-today");
-		renderMetric(metrics, "tomorrow", tomorrowTasks.length, "calendar-days", "is-tomorrow");
-		renderMetric(metrics, "overdue", overdue.length, "flame", "is-overdue");
-		renderMetric(metrics, "in progress", visibleInProgress.length, "play", "is-progress");
-
-		renderTaskStream(section, {
-			title: "Today",
-			caption:
-				overdue.length > 0
-					? "Handle urgent items first"
-					: urgentTasks.length > 0
-						? "What needs to be finished today"
-						: "No deadlines today",
-			count: urgentTasks.length,
-			icon: overdue.length > 0 ? "flame" : "calendar",
-			tone: "urgent",
-			tasks: urgentTasks,
-			overdueKeys,
-			ctx,
-			emptyText: "Nothing urgent today",
-			limit: 5,
-		});
-
-		renderTaskStream(section, {
-			title: "Tomorrow",
-			caption:
-				tomorrowTasks.length > 0
-					? "What can be prepared next"
-					: "No deadlines tomorrow",
-			count: tomorrowTasks.length,
-			icon: "calendar-days",
-			tone: "progress",
-			tasks: tomorrowTasks,
-			overdueKeys,
-			ctx,
-			emptyText: "Nothing planned for tomorrow",
-			limit: 5,
-		});
-
-		if (visibleInProgress.length > 0 || (urgentTasks.length === 0 && tomorrowTasks.length === 0)) {
+		if (urgentTasks.length > 0) {
 			renderTaskStream(section, {
-				title: "In Progress",
-				caption: "Started work waiting for the next step",
+				title: t("Today"),
+				caption:
+					overdue.length > 0
+						? t("Handle urgent items first")
+						: t("What needs to be finished today"),
+				count: urgentTasks.length,
+				icon: overdue.length > 0 ? "flame" : "calendar",
+				tone: "urgent",
+				tasks: urgentTasks,
+				overdueKeys,
+				ctx,
+				taskService,
+				limit: 5,
+			});
+		}
+
+		if (tomorrowTasks.length > 0) {
+			renderTaskStream(section, {
+				title: t("Tomorrow"),
+				caption: t("What can be prepared next"),
+				count: tomorrowTasks.length,
+				icon: "calendar-days",
+				tone: "progress",
+				tasks: tomorrowTasks,
+				overdueKeys,
+				ctx,
+				taskService,
+				limit: 5,
+			});
+		}
+
+		if (visibleInProgress.length > 0) {
+			renderTaskStream(section, {
+				title: t("In Progress"),
+				caption: t("Started work waiting for the next step"),
 				count: visibleInProgress.length,
 				icon: "play",
 				tone: "progress",
 				tasks: visibleInProgress,
 				overdueKeys,
 				ctx,
-				emptyText: "No active work right now",
+				taskService,
 				limit: 4,
 			});
+		}
+
+		if (completedTasks.length > 0) {
+			renderTaskStream(section, {
+				title: t("Completed Today"),
+				caption: t("Great job!"),
+				count: completedTasks.length,
+				icon: "check-circle-2",
+				tone: "progress",
+				tasks: completedTasks,
+				overdueKeys,
+				ctx,
+				taskService,
+				limit: 4,
+			});
+		}
+
+		if (urgentTasks.length === 0 && tomorrowTasks.length === 0 && visibleInProgress.length === 0 && completedTasks.length === 0) {
+			const emptyState = createElement("div", { cls: "umos-home-tasks-empty-state", parent: section });
+			const emptyIcon = createElement("div", { cls: "umos-home-tasks-empty-icon", parent: emptyState });
+			setIcon(emptyIcon, "party-popper");
+			createElement("div", { cls: "umos-home-tasks-empty-title", text: t("All caught up!"), parent: emptyState });
+			createElement("div", { cls: "umos-home-tasks-empty-subtitle", text: t("Take a break or plan ahead for tomorrow."), parent: emptyState });
 		}
 	});
 }

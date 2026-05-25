@@ -31,11 +31,21 @@ export class TasksWidget extends BaseWidget {
     private sortDir: SortDir               = 'asc';
     private filtersOpen                    = false;
 
+    // Search focus state
+    private searchFocused = false;
+    private searchCursorStart: number | null = null;
+    private searchCursorEnd: number | null = null;
+
     // ── Bulk selection ────────────────────────────────────────────────────
     private selectedTasks: Set<Task> = new Set();
     private selectionMode = false;
     private allTasks: Task[] = [];
     private sourcePath: string | null = null;
+
+    // DOM Containers
+    private headerContainer: HTMLElement;
+    private filtersContainer: HTMLElement;
+    private listContainer: HTMLElement;
 
     constructor(
         containerEl: HTMLElement,
@@ -67,6 +77,10 @@ export class TasksWidget extends BaseWidget {
             }
             if (parts[1] === 'desc') this.sortDir = 'desc';
         }
+
+        this.headerContainer = this.containerEl.createDiv({ cls: 'umos-tasks-header-wrapper' });
+        this.filtersContainer = this.containerEl.createDiv({ cls: 'umos-tasks-filters-wrapper' });
+        this.listContainer = this.containerEl.createDiv({ cls: 'umos-tasks-list-wrapper' });
     }
 
     protected onWidgetLoad(): void {
@@ -87,69 +101,70 @@ export class TasksWidget extends BaseWidget {
     // ═════════════════════════════════════════════════════════════════════
     //  MAIN RENDER
     // ═════════════════════════════════════════════════════════════════════
-    private async renderAsync() {
+    private async renderAsync(full = true) {
         this.isUpdating = false;
-        this.containerEl.empty();
 
-        // ── Header ──────────────────────────────────────────────────────
-        const header = this.containerEl.createDiv({ cls: 'umos-tasks-header' });
+        if (full) {
+            this.headerContainer.empty();
+            this.filtersContainer.empty();
 
-        if (this.config.title) {
-            header.createEl('h3', { text: this.config.title, cls: 'umos-tasks-title' });
-        }
+            // ── Header ──────────────────────────────────────────────────────
+            const header = this.headerContainer.createDiv({ cls: 'umos-tasks-header' });
 
-        const headerActions = header.createDiv({ cls: 'umos-tasks-header-actions' });
+            if (this.config.title) {
+                header.createEl('h3', { text: this.config.title, cls: 'umos-tasks-title' });
+            }
 
-        // Search toggle (always-on text input visible in filter panel)
-        const filterToggleBtn = headerActions.createEl('button', {
-            cls: `clickable-icon${this.filtersOpen ? ' is-active' : ''}`,
-            attr: { 'aria-label': 'Filters' },
-        });
-        setIcon(filterToggleBtn, 'sliders-horizontal');
-        filterToggleBtn.addEventListener('click', () => {
-            this.filtersOpen = !this.filtersOpen;
-            this.render();
-        });
+            const headerActions = header.createDiv({ cls: 'umos-tasks-header-actions' });
 
-        // Selection mode toggle
-        const selectBtn = headerActions.createEl('button', {
-            cls: `clickable-icon${this.selectionMode ? ' is-active' : ''}`,
-            attr: { 'aria-label': 'Selection' },
-        });
-        setIcon(selectBtn, 'list-checks');
-        selectBtn.addEventListener('click', () => {
-            this.selectionMode = !this.selectionMode;
-            if (!this.selectionMode) this.selectedTasks.clear();
-            this.render();
-        });
-
-        // Create task button
-        const createBtn = headerActions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'New Task' } });
-        setIcon(createBtn, 'plus');
-        createBtn.addEventListener('click', () => this.openCreateModal());
-
-        // ── Active-filter chips row (always visible, shows active extra filters) ──
-        this.renderActiveFilterChips(this.containerEl);
-
-        // ── Status quick-filter bar (always visible) ─────────────────────
-        const statusBar = this.containerEl.createDiv({ cls: 'umos-tasks-filter-bar' });
-        const statusFilters: { key: StatusFilter; label: string }[] = [
-            { key: 'all',    label: 'All' },
-            { key: 'active', label: 'Active' },
-            { key: 'doing',  label: 'In Progress' },
-            { key: 'done',   label: 'Done' },
-        ];
-        for (const f of statusFilters) {
-            const btn = statusBar.createEl('button', {
-                text: f.label,
-                cls: `umos-tasks-filter-btn${this.statusFilter === f.key ? ' is-active' : ''}`,
+            const filterToggleBtn = headerActions.createEl('button', {
+                cls: `clickable-icon${this.filtersOpen ? ' is-active' : ''}`,
+                attr: { 'aria-label': 'Filters' },
             });
-            btn.addEventListener('click', () => { this.statusFilter = f.key; this.render(); });
-        }
+            setIcon(filterToggleBtn, 'sliders-horizontal');
+            filterToggleBtn.addEventListener('click', () => {
+                this.filtersOpen = !this.filtersOpen;
+                this.render();
+            });
 
-        // ── Extended filter panel ────────────────────────────────────────
-        if (this.filtersOpen) {
-            this.renderFilterPanel(this.containerEl);
+            const selectBtn = headerActions.createEl('button', {
+                cls: `clickable-icon${this.selectionMode ? ' is-active' : ''}`,
+                attr: { 'aria-label': 'Selection' },
+            });
+            setIcon(selectBtn, 'list-checks');
+            selectBtn.addEventListener('click', () => {
+                this.selectionMode = !this.selectionMode;
+                if (!this.selectionMode) this.selectedTasks.clear();
+                this.render();
+            });
+
+            const createBtn = headerActions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'New Task' } });
+            setIcon(createBtn, 'plus');
+            createBtn.addEventListener('click', () => this.openCreateModal());
+
+            // ── Active-filter chips row ──
+            this.renderActiveFilterChips(this.headerContainer);
+
+            // ── Status quick-filter bar ─────────────────────
+            const statusBar = this.headerContainer.createDiv({ cls: 'umos-tasks-filter-bar' });
+            const statusFilters: { key: StatusFilter; label: string }[] = [
+                { key: 'all',    label: 'All' },
+                { key: 'active', label: 'Active' },
+                { key: 'doing',  label: 'In Progress' },
+                { key: 'done',   label: 'Done' },
+            ];
+            for (const f of statusFilters) {
+                const btn = statusBar.createEl('button', {
+                    text: f.label,
+                    cls: `umos-tasks-filter-btn${this.statusFilter === f.key ? ' is-active' : ''}`,
+                });
+                btn.addEventListener('click', () => { this.statusFilter = f.key; this.render(); });
+            }
+
+            // ── Extended filter panel ────────────────────────────────────────
+            if (this.filtersOpen) {
+                this.renderFilterPanel(this.filtersContainer);
+            }
         }
 
         // ── Load tasks ──────────────────────────────────────────────────
@@ -161,15 +176,17 @@ export class TasksWidget extends BaseWidget {
         const tasks = await this.service.getTasksWithQuery(query);
         this.allTasks = tasks;
 
+        this.listContainer.empty();
+
         let filtered = this.applyFilters(tasks);
         this.sortTasks(filtered);
 
         // ── Bulk bar ────────────────────────────────────────────────────
-        if (this.selectionMode) this.renderBulkBar(this.containerEl);
+        if (this.selectionMode) this.renderBulkBar(this.listContainer);
 
         // ── Empty state ─────────────────────────────────────────────────
         if (filtered.length === 0) {
-            const empty = this.containerEl.createDiv({ cls: 'umos-tasks-empty' });
+            const empty = this.listContainer.createDiv({ cls: 'umos-tasks-empty' });
             empty.innerHTML = `<span>No tasks found</span>`;
             if (this.hasActiveExtraFilters()) {
                 const reset = empty.createEl('button', { text: 'Reset filters', cls: 'umos-tasks-filter-reset-btn' });
@@ -179,10 +196,10 @@ export class TasksWidget extends BaseWidget {
         }
 
         // ── Stats summary bar ───────────────────────────────────────────
-        this.renderStatsSummary(this.containerEl, tasks, filtered);
+        this.renderStatsSummary(this.listContainer, tasks, filtered);
 
         // ── Task list ───────────────────────────────────────────────────
-        const rootList = this.containerEl.createEl('ul', { cls: 'umos-tasks-widget' });
+        const rootList = this.listContainer.createEl('ul', { cls: 'umos-tasks-widget' });
         this.renderTaskTree(filtered, rootList, false);
     }
 
@@ -200,11 +217,20 @@ export class TasksWidget extends BaseWidget {
             cls: 'umos-tasks-search-input',
             attr: { type: 'text', placeholder: 'Search by description...', value: this.searchQuery },
         }) as HTMLInputElement;
+
         searchInput.addEventListener('input', () => {
             this.searchQuery = searchInput.value;
-            this.scheduleRender();
+            // UPDATE CHIPS AND LIST ONLY
+            this.updateActiveFilterChipsInHeader();
+            void this.renderAsync(false);
         });
-        if (this.filtersOpen) requestAnimationFrame(() => searchInput.focus());
+
+        searchInput.addEventListener('blur', () => this.searchFocused = false);
+        searchInput.addEventListener('focus', () => this.searchFocused = true);
+
+        if (this.filtersOpen && this.searchFocused) {
+            requestAnimationFrame(() => searchInput.focus());
+        }
 
         // Priority filter
         const priRow = panel.createDiv({ cls: 'umos-tasks-filter-row' });
@@ -310,7 +336,16 @@ export class TasksWidget extends BaseWidget {
     /** Chips above the status bar showing active non-default filters */
     private renderActiveFilterChips(container: HTMLElement): void {
         if (!this.hasActiveExtraFilters()) return;
-        const row = container.createDiv({ cls: 'umos-tasks-active-filters' });
+        
+        const row = document.createElement('div');
+        row.className = 'umos-tasks-active-filters';
+        
+        const statusBar = container.querySelector('.umos-tasks-filter-bar');
+        if (statusBar) {
+            container.insertBefore(row, statusBar);
+        } else {
+            container.appendChild(row);
+        }
 
         const add = (label: string, onClose: () => void) => {
             const chip = row.createSpan({ cls: 'umos-tasks-active-chip' });
@@ -334,10 +369,6 @@ export class TasksWidget extends BaseWidget {
             add(`"${this.searchQuery}"`, () => { this.searchQuery = ''; });
         }
     }
-
-    // ═════════════════════════════════════════════════════════════════════
-    //  FILTERING
-    // ═════════════════════════════════════════════════════════════════════
 
     private applyFilters(tasks: Task[]): Task[] {
         const today = moment().startOf('day');
@@ -387,6 +418,12 @@ export class TasksWidget extends BaseWidget {
         }
 
         return result;
+    }
+
+    private updateActiveFilterChipsInHeader(): void {
+        const existing = this.headerContainer.querySelector('.umos-tasks-active-filters');
+        if (existing) existing.remove();
+        this.renderActiveFilterChips(this.headerContainer);
     }
 
     private hasActiveExtraFilters(): boolean {
@@ -508,7 +545,21 @@ export class TasksWidget extends BaseWidget {
     // ═════════════════════════════════════════════════════════════════════
 
     private renderTaskTree(tasks: Task[], parentUl: HTMLUListElement, isSubtask = false) {
+        let currentDateStr = '';
+        const shouldGroup = !isSubtask && (this.statusFilter === 'done' || this.sortField === 'dueDate');
+
         for (const task of tasks) {
+            if (shouldGroup) {
+                const rawDate = this.statusFilter === 'done' 
+                    ? (task.doneDate || task.dueDate || '') 
+                    : (task.dueDate || task.scheduledDate || task.doneDate || '');
+                const dateStr = rawDate || 'No date';
+                if (dateStr !== currentDateStr) {
+                    parentUl.createEl('li', { cls: 'umos-tasks-date-header', text: this.formatDateHeader(dateStr) });
+                    currentDateStr = dateStr;
+                }
+            }
+
             const today = moment().startOf('day');
             const isOverdue = task.status !== 'done' && task.status !== 'cancelled' && task.dueDate && moment(task.dueDate).isBefore(today);
 
@@ -803,6 +854,21 @@ export class TasksWidget extends BaseWidget {
     private scheduleRender(): void {
         if (this.renderTimeout) clearTimeout(this.renderTimeout);
         this.renderTimeout = setTimeout(() => this.render(), 200);
+    }
+
+    private formatDateHeader(dateStr: string): string {
+        if (!dateStr || dateStr === 'No date') return 'No date';
+        const m = moment(dateStr, 'YYYY-MM-DD');
+        if (!m.isValid()) return dateStr;
+        
+        const today = moment().startOf('day');
+        const diff = m.diff(today, 'days');
+        
+        if (diff === 0) return 'Today';
+        if (diff === -1) return 'Yesterday';
+        if (diff === 1) return 'Tomorrow';
+        
+        return m.format('D MMMM YYYY');
     }
 
     private openCreateModal() {

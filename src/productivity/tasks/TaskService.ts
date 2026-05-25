@@ -664,7 +664,7 @@ export class TaskService {
         return { overdue, dueToday };
     }
 
-    public async getHomeTasks(): Promise<{ overdue: Task[]; dueToday: Task[]; dueTomorrow: Task[]; inProgress: Task[] }> {
+    public async getHomeTasks(): Promise<{ overdue: Task[]; dueToday: Task[]; dueTomorrow: Task[]; inProgress: Task[]; completedToday: Task[] }> {
         const allTasks = await this.getTasksWithQuery({});
         const flatTasks = this.flattenTasks(allTasks);
         const today = moment().startOf('day');
@@ -681,7 +681,12 @@ export class TaskService {
             t => t.status === 'doing' && !urgentKeys.has(`${t.filePath}:${t.lineNumber}`)
         );
 
-        return { overdue, dueToday, dueTomorrow, inProgress };
+        const todayStr = today.format('YYYY-MM-DD');
+        const completedToday = flatTasks.filter(
+            t => t.status === 'done' && t.doneDate === todayStr
+        );
+
+        return { overdue, dueToday, dueTomorrow, inProgress, completedToday };
     }
 
     private getFilesToScan(query: ITaskQuery): TFile[] {

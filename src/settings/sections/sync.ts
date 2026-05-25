@@ -20,7 +20,6 @@ import type { SyncAuthType, SyncMode, SyncSecrets } from "../../sync/types";
 
 export function renderSyncSection(containerEl: HTMLElement, ctx: SettingsContext): void {
 	renderVaultSyncSection(containerEl, ctx);
-	renderLegacySyncSection(containerEl, ctx);
 }
 
 function renderVaultSyncSection(containerEl: HTMLElement, ctx: SettingsContext): void {
@@ -103,18 +102,20 @@ function renderVaultSyncSection(containerEl: HTMLElement, ctx: SettingsContext):
 				})
 		);
 
-	new Setting(sectionEl)
-		.setName("Remote root")
-		.setDesc("Folder inside the remote provider used as the sync broker.")
-		.addText((text) =>
-			text
-				.setPlaceholder("umOS Sync")
-				.setValue(ctx.settings.syncRemoteRoot)
-				.onChange(async (value) => {
-					ctx.settings.syncRemoteRoot = value.trim() || "umOS Sync";
-					await ctx.saveSettings();
-				})
-	);
+	if (!["dropbox", "onedrive", "google-drive"].includes(ctx.settings.syncProvider)) {
+		new Setting(sectionEl)
+			.setName("Remote root")
+			.setDesc("Folder inside the remote provider used as the sync broker.")
+			.addText((text) =>
+				text
+					.setPlaceholder("umOS Sync")
+					.setValue(ctx.settings.syncRemoteRoot)
+					.onChange(async (value) => {
+						ctx.settings.syncRemoteRoot = value.trim() || "umOS Sync";
+						await ctx.saveSettings();
+					})
+			);
+	}
 
 	const secretsWrap = sectionEl.createDiv({ cls: "umos-sync-secrets" });
 	secretsWrap.createDiv({ cls: "umos-sync-subheading", text: "Provider credentials" });
@@ -270,37 +271,7 @@ function createSyncCenterButton(
 	return button;
 }
 
-function renderLegacySyncSection(containerEl: HTMLElement, ctx: SettingsContext): void {
-	const sectionEl = createSection(
-		containerEl,
-		"umos-settings-sync",
-		"Legacy Data JSON Sync",
-		"Duplicates plugin data into a file inside the vault so it is easier to move between devices."
-	);
 
-	new Setting(sectionEl)
-		.setName("Sync File Path")
-		.setDesc("Path relative to the vault root, for example: umOS/sync.json. Empty value disables writing.")
-		.addText((text) =>
-			text
-				.setPlaceholder("umOS/sync.json")
-				.setValue(ctx.settings.syncDataPath || "")
-				.onChange(async (value) => {
-					ctx.settings.syncDataPath = value.trim();
-					await ctx.saveSettings();
-				})
-		);
-
-	new Setting(sectionEl)
-		.setName("data.json Editor")
-		.setDesc("Open a JSON editor for plugin data, validate it, compare it with the sync file, and write either side when needed.")
-		.addButton((button) =>
-			button
-				.setButtonText("Open editor")
-				.setCta()
-				.onClick(() => new DataJsonModal(ctx).open())
-		);
-}
 
 async function renderSecretsFields(container: HTMLElement, ctx: SettingsContext): Promise<void> {
 	const service = ctx.plugin.vaultSyncService;
@@ -564,9 +535,6 @@ function renderS3Fields(container: HTMLElement, ctx: SettingsContext, secrets: S
 
 function renderDropboxFields(container: HTMLElement, ctx: SettingsContext, secrets: SyncSecrets): void {
 	const service = ctx.plugin.vaultSyncService;
-	createSecretInput(container, "Dropbox app key", secrets.dropboxAppKey ?? "", "App key from Dropbox App Console", async (value) => {
-		await service.saveSecrets({ dropboxAppKey: value.trim() });
-	}, false);
 
 	const status = container.createDiv({ cls: "umos-sync-oauth-status" });
 	status.createSpan({
@@ -578,68 +546,38 @@ function renderDropboxFields(container: HTMLElement, ctx: SettingsContext, secre
 		statusText.createSpan({ text: ` · ${secrets.dropboxAccountId}` });
 	}
 
-	const authCodeInput = createSecretInput(
-		container,
-		"Dropbox auth code",
-		"",
-		"Paste the code from Dropbox",
-		async () => undefined,
-		true
-	);
-
 	const oauthCard = container.createDiv({ cls: "umos-sync-oauth-card" });
 	const oauthCopy = oauthCard.createDiv({ cls: "umos-sync-oauth-copy" });
-	oauthCopy.createDiv({ cls: "umos-sync-oauth-title", text: "Dropbox OAuth" });
+	oauthCopy.createDiv({ cls: "umos-sync-oauth-title", text: "Dropbox" });
 	oauthCopy.createDiv({
 		cls: "umos-sync-oauth-desc",
-		text: "Generate an authorization link, open it, then paste the code here to store a local refresh token.",
+		text: "Securely sync your vault to Dropbox.",
 	});
 	const actions = oauthCard.createDiv({ cls: "umos-sync-oauth-actions" });
-	createOauthButton(actions, "Generate auth link", "", async () => {
-		try {
-			const latest = await service.loadSecrets();
-			const auth = await createDropboxAuthUrl(latest.dropboxAppKey ?? "");
-			await service.saveSecrets({ dropboxCodeVerifier: auth.codeVerifier });
-			await copyToClipboard(auth.url);
-			window.open(auth.url);
-			new Notice(t("Dropbox auth link copied"));
-		} catch (error) {
-			new Notice(t(error instanceof Error ? error.message : String(error)));
-		}
-	});
-	createOauthButton(actions, "Exchange code", "mod-cta", async () => {
-		try {
-			const latest = await service.loadSecrets();
-			const token = await exchangeDropboxAuthCode(
-				latest.dropboxAppKey ?? "",
-				authCodeInput.value,
-				latest.dropboxCodeVerifier ?? ""
-			);
+
+	if (!secrets.dropboxRefreshToken) {
+		createOauthButton(actions, "Sign in with Dropbox", "mod-cta", async () => {
+			try {
+				const auth = await createDropboxAuthUrl();
+				await service.saveSecrets({ dropboxCodeVerifier: auth.codeVerifier });
+				window.open(auth.url);
+			} catch (error) {
+				new Notice(t(error instanceof Error ? error.message : String(error)));
+			}
+		});
+	} else {
+		createOauthButton(actions, "Sign out", "is-danger", async () => {
 			await service.saveSecrets({
-				dropboxAccessToken: token.accessToken,
-				dropboxAccessTokenExpiresAt: token.expiresAt,
-				dropboxRefreshToken: token.refreshToken ?? latest.dropboxRefreshToken,
-				dropboxAccountId: token.accountId ?? latest.dropboxAccountId,
+				dropboxAccessToken: "",
+				dropboxAccessTokenExpiresAt: 0,
+				dropboxRefreshToken: "",
+				dropboxAccountId: "",
 				dropboxCodeVerifier: "",
 			});
-			authCodeInput.value = "";
-			new Notice(t("Dropbox authorization saved"));
+			new Notice(t("Dropbox auth cleared"));
 			ctx.display();
-		} catch (error) {
-			new Notice(t(error instanceof Error ? error.message : String(error)));
-		}
-	});
-	createOauthButton(actions, "Clear Dropbox auth", "is-danger", async () => {
-		await service.saveSecrets({
-			dropboxAccessToken: "",
-			dropboxAccessTokenExpiresAt: 0,
-			dropboxRefreshToken: "",
-			dropboxAccountId: "",
-			dropboxCodeVerifier: "",
 		});
-		new Notice(t("Dropbox auth cleared"));
-		ctx.display();
-	});
+	}
 }
 
 async function renderEncryptionField(container: HTMLElement, ctx: SettingsContext): Promise<void> {
